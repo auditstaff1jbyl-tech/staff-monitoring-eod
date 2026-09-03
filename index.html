@@ -10971,7 +10971,7 @@ function Ou() {
 }
 
 function X5(A, e) {
-    return !A || !Array.isArray(A) ? [] : A.filter(t => !(e.dateFrom && t.date < e.dateFrom || e.dateTo && t.date > e.dateTo || e.branch && e.branch !== "All" && t.branch !== e.branch || e.staff && e.staff !== "All" && t.staffName !== e.staff && t.staffId !== e.staff || e.issueType && e.issueType !== "All" && t.issueType !== e.issueType || e.varianceStatus && e.varianceStatus !== "All" && t.varianceStatus !== e.varianceStatus))
+    return !A || !Array.isArray(A) ? [] : A.filter(t => !(e.dateFrom && t.date < e.dateFrom || e.dateTo && t.date > e.dateTo || e.branch && e.branch !== "All" && t.branch !== e.branch || e.staff && e.staff !== "All" && t.staffName !== e.staff && t.staffId !== e.staff || e.issueType && e.issueType !== "All" && t.issueType !== e.issueType || e.varianceStatus && e.varianceStatus !== "All" && t.varianceStatus !== e.varianceStatus || e.department && e.department !== "All" && t.department !== e.department))
 }
 
 function _Q(A, e) {
@@ -13516,7 +13516,8 @@ const gL = [
                 branch: "All",
                 staff: "All",
                 issueType: "All",
-                varianceStatus: "All"
+                varianceStatus: "All",
+                department: "All"
             }),
             [p, E] = ve.useState("exposure"),
             [B, Q] = ve.useState("exposure"),
@@ -13618,10 +13619,11 @@ const gL = [
                     branch: "All",
                     staff: "All",
                     issueType: "All",
-                    varianceStatus: "All"
+                    varianceStatus: "All",
+                    department: "All"
                 })
             },
-            dt = !!v.dateFrom || !!v.dateTo || v.branch !== "All" || v.staff !== "All" || v.issueType !== "All" || v.varianceStatus !== "All";
+            dt = !!v.dateFrom || !!v.dateTo || v.branch !== "All" || v.staff !== "All" || v.issueType !== "All" || v.varianceStatus !== "All" || v.department !== "All";
         return u.jsxs("div", {
             id: "overview-dashboard-container",
             className: "space-y-6 animate-fade-in text-[#2C2A29]",
@@ -13650,7 +13652,7 @@ const gL = [
                         })
                     })]
                 }), u.jsxs("div", {
-                    className: "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 text-xs",
+                    className: "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3 text-xs",
                     children: [u.jsxs("div", {
                         className: "space-y-1",
                         children: [u.jsx("label", {
@@ -13787,6 +13789,30 @@ const gL = [
                             }), u.jsx("option", {
                                 value: "C",
                                 children: "Closed / Resolved"
+                            })]
+                        })]
+                    }), u.jsxs("div", {
+                        className: "space-y-1",
+                        children: [u.jsx("label", {
+                            className: "text-[10.5px] font-bold text-[#6C655B] uppercase tracking-wider block",
+                            children: "Category"
+                        }), u.jsxs("select", {
+                            id: "filter-department",
+                            value: v.department,
+                            onChange: he => y(Re => ({
+                                ...Re,
+                                department: he.target.value
+                            })),
+                            className: "w-full px-2.5 py-1.5 border border-[#EAE3D5] rounded-lg bg-[#FAF7F2]/50 text-gray-900 font-semibold focus:outline-none focus:ring-1 focus:ring-[#C5A059] cursor-pointer",
+                            children: [u.jsx("option", {
+                                value: "All",
+                                children: "All (Raw Materials + Finished Goods)"
+                            }), u.jsx("option", {
+                                value: "FG",
+                                children: "Finished Goods"
+                            }), u.jsx("option", {
+                                value: "RM",
+                                children: "Raw Materials"
                             })]
                         })]
                     })]
