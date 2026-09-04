@@ -10947,6 +10947,29 @@ function NQ() {
         alert("Backup failed \u2014 no internet connection. Please try again.")
     })
 }
+function exportLocalBackup() {
+    const A = {
+            version: "3.0.0",
+            exportedAt: new Date().toISOString(),
+            branches: u0(),
+            staff: dN(),
+            items: hN(),
+            issueTypes: f0(),
+            riskSettings: gN(),
+            riskThresholds: Xf(),
+            eodRecords: d0(),
+            actionItems: h0(),
+            incidentReports: BQ(),
+            disciplinaryActions: g0()
+        },
+        e = new Blob([JSON.stringify(A, null, 2)], {
+            type: "application/json"
+        }),
+        t = URL.createObjectURL(e),
+        r = document.createElement("a"),
+        i = new Date().toISOString().slice(0, 10);
+    r.href = t, r.download = `EOD-Matrix-Full-Backup-${i}.json`, document.body.appendChild(r), r.click(), document.body.removeChild(r), URL.revokeObjectURL(t)
+}
 const SQ = NQ;
 
 function FQ(A) {
@@ -13154,15 +13177,15 @@ const gL = [
                     }), u.jsx("span", {
                         children: "Import Restore"
                     })]
-                }), g && u.jsxs("button", {
-                    id: "btn-reset-demo",
-                    onClick: g,
-                    className: "w-full flex items-center gap-2 py-2 px-3 bg-[#1B1918] hover:bg-red-950/20 text-[#A69C8E] hover:text-red-400 border border-[#22201D] rounded-lg font-medium transition-colors cursor-pointer",
-                    title: "Reset database to seed records",
+                }), u.jsxs("button", {
+                    id: "btn-export-local",
+                    onClick: exportLocalBackup,
+                    className: "w-full flex items-center gap-2 py-2 px-3 bg-[#1B1918] hover:bg-[#22201D] text-[#A69C8E] hover:text-[#C5A059] border border-[#22201D] rounded-lg font-medium transition-colors cursor-pointer",
+                    title: "Download a JSON backup file to this device",
                     children: [u.jsx(kT, {
-                        className: "w-3.5 h-3.5 text-gray-500"
+                        className: "w-3.5 h-3.5 text-[#C5A059]"
                     }), u.jsx("span", {
-                        children: "Reset Sample Seed"
+                        children: "Export Backup (Local File)"
                     })]
                 }), u.jsx("div", {
                     className: "pt-2 text-[10px] text-[#6C655B] text-center font-mono",
