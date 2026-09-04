@@ -40,6 +40,7 @@
       }
 
       function launchApp() {
+        buildSyncBadge();
         installSupabaseSync();
         hydrateFromSupabase().finally(function () {
           var src = document.getElementById("app-bundle").textContent;
@@ -48,6 +49,37 @@
           s.textContent = src;
           document.body.appendChild(s);
         });
+      }
+
+      var syncBadgeEl = null;
+      var syncBadgeHideTimer = null;
+      function buildSyncBadge() {
+        syncBadgeEl = document.createElement("div");
+        syncBadgeEl.style.cssText = "position:fixed;top:14px;right:14px;z-index:99999;font-family:-apple-system,Segoe UI,Roboto,sans-serif;font-size:11.5px;font-weight:600;padding:6px 12px;border-radius:20px;box-shadow:0 4px 12px rgba(0,0,0,.2);display:none;align-items:center;gap:6px;transition:opacity .3s;";
+        document.body.appendChild(syncBadgeEl);
+      }
+      function setSyncStatus(status) {
+        if (!syncBadgeEl) return;
+        clearTimeout(syncBadgeHideTimer);
+        syncBadgeEl.style.display = "flex";
+        syncBadgeEl.style.opacity = "1";
+        if (status === "pending" || status === "saving") {
+          syncBadgeEl.style.background = "#FFF4DC";
+          syncBadgeEl.style.color = "#8A6A1F";
+          syncBadgeEl.textContent = status === "saving" ? "⏳ Saving to cloud..." : "● Unsaved changes";
+        } else if (status === "saved") {
+          syncBadgeEl.style.background = "#E4F5EA";
+          syncBadgeEl.style.color = "#1C7A42";
+          syncBadgeEl.textContent = "✓ Saved to cloud";
+          syncBadgeHideTimer = setTimeout(function () {
+            syncBadgeEl.style.opacity = "0";
+            setTimeout(function () { syncBadgeEl.style.display = "none"; }, 300);
+          }, 2200);
+        } else if (status === "error") {
+          syncBadgeEl.style.background = "#FCE4E4";
+          syncBadgeEl.style.color = "#B53D43";
+          syncBadgeEl.textContent = "⚠ Not saved — check connection";
+        }
       }
 
       function installSupabaseSync() {
@@ -65,25 +97,34 @@
         }
         function scheduleFlush() {
           clearTimeout(timer);
+          setSyncStatus("pending");
           timer = setTimeout(flush, 800);
         }
         function flush() {
           var keys = Object.keys(pending);
           pending = {};
-          keys.forEach(function (key) {
-            if (isSystemKey(key)) return;
+          if (keys.length === 0) return;
+          setSyncStatus("saving");
+          var tasks = keys.map(function (key) {
+            if (isSystemKey(key)) return Promise.resolve();
             var value = window.localStorage.getItem(key);
             if (value === null) {
-              fetch(SUPABASE_URL + "/rest/v1/kv_store?key=eq." + encodeURIComponent(key), {
+              return fetch(SUPABASE_URL + "/rest/v1/kv_store?key=eq." + encodeURIComponent(key), {
                 method: "DELETE", headers: headers()
-              }).catch(function () {});
+              });
             } else {
-              fetch(SUPABASE_URL + "/rest/v1/kv_store", {
+              return fetch(SUPABASE_URL + "/rest/v1/kv_store", {
                 method: "POST",
                 headers: headers({ "Content-Type": "application/json", Prefer: "resolution=merge-duplicates" }),
                 body: JSON.stringify({ key: key, value: value, updated_at: new Date().toISOString() })
-              }).catch(function () {});
+              });
             }
+          });
+          Promise.all(tasks).then(function (results) {
+            var failed = results.some(function (r) { return r && !r.ok; });
+            setSyncStatus(failed ? "error" : "saved");
+          }).catch(function () {
+            setSyncStatus("error");
           });
         }
         window.localStorage.setItem = function (key, value) {
@@ -98,6 +139,13 @@
           pending[key] = true;
           scheduleFlush();
         };
+
+        window.addEventListener("beforeunload", function (e) {
+          if (Object.keys(pending).length > 0) {
+            e.preventDefault();
+            e.returnValue = "";
+          }
+        });
       }
 
       function hydrateFromSupabase() {
