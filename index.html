@@ -10920,14 +10920,31 @@ function NQ() {
             actionItems: h0(),
             incidentReports: BQ(),
             disciplinaryActions: g0()
+        };
+    if (!window.SUPABASE_URL || String(window.SUPABASE_URL).indexOf("PASTE_") === 0) {
+        alert("Cloud backup is not configured yet.");
+        return
+    }
+    const backupKey = "manual_backup_" + new Date().toISOString().replace(/[:.]/g, "-");
+    fetch(window.SUPABASE_URL + "/rest/v1/kv_store", {
+        method: "POST",
+        headers: {
+            apikey: window.SUPABASE_ANON_KEY,
+            Authorization: "Bearer " + window.SUPABASE_ANON_KEY,
+            "Content-Type": "application/json",
+            Prefer: "resolution=merge-duplicates"
         },
-        e = new Blob([JSON.stringify(A, null, 2)], {
-            type: "application/json"
-        }),
-        t = URL.createObjectURL(e),
-        r = document.createElement("a"),
-        i = new Date().toISOString().slice(0, 10);
-    r.href = t, r.download = `EOD-Matrix-Full-Backup-${i}.json`, document.body.appendChild(r), r.click(), document.body.removeChild(r), URL.revokeObjectURL(t)
+        body: JSON.stringify({
+            key: backupKey,
+            value: JSON.stringify(A),
+            updated_at: new Date().toISOString()
+        })
+    }).then(r => {
+        if (r.ok) alert(`Backup saved to cloud database.\n\n${A.eodRecords.length} EOD records, ${A.branches.length} branches, ${A.staff.length} staff.\nSaved as: ${backupKey}`);
+        else alert("Backup failed to save. Please check your internet connection and try again.")
+    }).catch(() => {
+        alert("Backup failed \u2014 no internet connection. Please try again.")
+    })
 }
 const SQ = NQ;
 
@@ -13116,11 +13133,11 @@ const gL = [
                     id: "btn-export-backup",
                     onClick: f,
                     className: "w-full flex items-center gap-2 py-2 px-3 bg-[#1B1918] hover:bg-[#22201D] text-[#A69C8E] hover:text-[#C5A059] border border-[#22201D] rounded-lg font-medium transition-colors cursor-pointer",
-                    title: "Download JSON backup of all master data and EOD records",
+                    title: "Save a timestamped snapshot backup directly to the cloud database",
                     children: [u.jsx(xd, {
                         className: "w-3.5 h-3.5 text-[#C5A059]"
                     }), u.jsx("span", {
-                        children: "Export Backup (JSON)"
+                        children: "Backup to Cloud"
                     })]
                 }), h && u.jsxs("button", {
                     id: "btn-import-backup",
