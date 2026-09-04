@@ -11397,7 +11397,7 @@ function DQ(A, e) {
 }
 
 function RQ(A, e, t) {
-    return Array.from(new Set(["Wrong EOD", "Wrong Entry", "Unpunch Item", "Overpunch", "Others", ...A.map(i => i.name)])).map(i => {
+    return Array.from(new Set(["Wrong EOD", "Unpunch Item", "Overpunch", ...A.map(i => i.name)])).map(i => {
         const s = e.filter(B => (B.issueType || "").toLowerCase().trim() === i.toLowerCase().trim()),
             l = t.filter(B => (B.issueType || "").toLowerCase().trim() === i.toLowerCase().trim()),
             c = s.length,
@@ -13810,18 +13810,12 @@ const gL = [
                                 value: "Wrong EOD",
                                 children: "Wrong EOD"
                             }), u.jsx("option", {
-                                value: "Wrong Entry",
-                                children: "Wrong Entry"
-                            }), u.jsx("option", {
                                 value: "Unpunch Item",
                                 children: "Unpunch Item"
                             }), u.jsx("option", {
                                 value: "Overpunch",
                                 children: "Overpunch"
-                            }), u.jsx("option", {
-                                value: "Others",
-                                children: "Others"
-                            }), (i || []).filter(he => he && !["Wrong EOD", "Wrong Entry", "Unpunch Item", "Overpunch", "Others"].includes(he.name)).map(he => u.jsx("option", {
+                            }), (i || []).filter(he => he && !["Wrong EOD", "Unpunch Item", "Overpunch"].includes(he.name)).map(he => u.jsx("option", {
                                 value: he.name,
                                 children: he.name
                             }, he.id))]
@@ -15483,18 +15477,12 @@ const gL = [
                                 value: "Wrong EOD",
                                 children: "Wrong EOD"
                             }), u.jsx("option", {
-                                value: "Wrong Entry",
-                                children: "Wrong Entry"
-                            }), u.jsx("option", {
                                 value: "Unpunch Item",
                                 children: "Unpunch Item"
                             }), u.jsx("option", {
                                 value: "Overpunch",
                                 children: "Overpunch"
-                            }), u.jsx("option", {
-                                value: "Others",
-                                children: "Others"
-                            }), i.filter(me => !["Wrong EOD", "Wrong Entry", "Unpunch Item", "Overpunch", "Others"].includes(me.name)).map(me => u.jsx("option", {
+                            }), i.filter(me => !["Wrong EOD", "Unpunch Item", "Overpunch"].includes(me.name)).map(me => u.jsx("option", {
                                 value: me.name,
                                 children: me.name
                             }, me.id))]
