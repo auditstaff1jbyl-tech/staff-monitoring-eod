@@ -12,7 +12,10 @@
     <script>
     // Database credentials now live server-side only (Vercel env vars),
     // accessed via the secure /api/data proxy. Nothing sensitive here.
-    var PASSCODE_HASH = "8fae968cc94c4353192d6993c65d92a43a6683de668960107c899a65191ef341";
+    var PASSCODE_HASHES = [
+      "8fae968cc94c4353192d6993c65d92a43a6683de668960107c899a65191ef341",
+      "80b09a7709e3ef167a11446bd2976a4f57d3ff1961e72d4e79e0965002d0f367"
+    ];
 
     (function () {
       var UNLOCK_KEY = "__gate_unlocked_until";
@@ -176,7 +179,7 @@
           e.preventDefault();
           var val = document.getElementById("gateInput").value;
           sha256(val).then(function (hash) {
-            if (hash === PASSCODE_HASH) {
+            if (PASSCODE_HASHES.includes(hash)) {
               var remember = document.getElementById("gateRemember").checked;
               if (remember) {
                 window.localStorage.setItem(UNLOCK_KEY, String(Date.now() + REMEMBER_DAYS * 86400000));
@@ -197,7 +200,7 @@
       }
 
       document.addEventListener("DOMContentLoaded", function () {
-        if (PASSCODE_HASH.indexOf("PASTE_") === 0) {
+        if (!PASSCODE_HASHES || !PASSCODE_HASHES.length) {
           document.body.innerHTML = '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:sans-serif;color:#B53D43;text-align:center;padding:20px;">Passcode not configured yet.<br/>Set PASSCODE_HASH in index.html (see SUPABASE_SETUP.md).</div>';
           return;
         }
