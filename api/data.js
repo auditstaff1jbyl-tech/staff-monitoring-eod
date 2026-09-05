@@ -7,14 +7,15 @@
 export default async function handler(req, res) {
   const SUPABASE_URL = process.env.SUPABASE_URL;
   const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
-  const APP_PASSCODE = process.env.APP_PASSCODE;
+  const ALLOWED_PASSCODES = (process.env.APP_PASSCODES || process.env.APP_PASSCODE || "")
+    .split(",").map((s) => s.trim()).filter(Boolean);
 
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY || !APP_PASSCODE) {
-    return res.status(500).json({ error: "Server not configured. Set SUPABASE_URL, SUPABASE_SERVICE_KEY, APP_PASSCODE in Vercel Environment Variables." });
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY || ALLOWED_PASSCODES.length === 0) {
+    return res.status(500).json({ error: "Server not configured. Set SUPABASE_URL, SUPABASE_SERVICE_KEY, APP_PASSCODES in Vercel Environment Variables." });
   }
 
   const providedPasscode = req.headers["x-passcode"];
-  if (!providedPasscode || providedPasscode !== APP_PASSCODE) {
+  if (!providedPasscode || !ALLOWED_PASSCODES.includes(providedPasscode)) {
     return res.status(401).json({ error: "Invalid or missing passcode." });
   }
 
