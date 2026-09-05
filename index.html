@@ -10,21 +10,22 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,400;1,600;1,700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <script>
-    // ============================================================
-    // EOD MONITORING MATRIX — ACCESS GATE + CLOUD SYNC
-    // Fill in SUPABASE_URL / SUPABASE_ANON_KEY / PASSCODE_HASH below
-    // (see SUPABASE_SETUP.md for step-by-step instructions)
-    // ============================================================
-    var SUPABASE_URL = "https://mibimpumvuytbpflhrfm.supabase.co";
-    var SUPABASE_ANON_KEY = "sb_publishable_gklqHPJi5zxdnHRXA1M0fg_NvXwksjB";
+    // Database credentials now live server-side only (Vercel env vars),
+    // accessed via the secure /api/data proxy. Nothing sensitive here.
     var PASSCODE_HASH = "8fae968cc94c4353192d6993c65d92a43a6683de668960107c899a65191ef341";
 
     (function () {
       var UNLOCK_KEY = "__gate_unlocked_until";
       var DISPLAY_KEY = "_uiprefs_theme";
+      var API_PASSCODE_KEY = "__api_passcode";
       var REMEMBER_DAYS = 30;
 
-      function isSystemKey(k) { return k === UNLOCK_KEY || k === DISPLAY_KEY; }
+      function isSystemKey(k) { return k === UNLOCK_KEY || k === DISPLAY_KEY || k === API_PASSCODE_KEY; }
+
+      function getStoredPasscode() {
+        return window.localStorage.getItem(API_PASSCODE_KEY) || sessionStorage.getItem(API_PASSCODE_KEY) || "";
+      }
+      window.getStoredPasscode = getStoredPasscode;
 
       function sha256(str) {
         return crypto.subtle.digest("SHA-256", new TextEncoder().encode(str)).then(function (buf) {
@@ -84,7 +85,6 @@
       }
 
       function installSupabaseSync() {
-        if (!SUPABASE_URL || SUPABASE_URL.indexOf("PASTE_") === 0) return; // not configured yet, skip cloud sync
         var origSetItem = window.localStorage.setItem.bind(window.localStorage);
         var origRemoveItem = window.localStorage.removeItem.bind(window.localStorage);
         var pending = {};
@@ -92,8 +92,7 @@
 
         function headers(extra) {
           return Object.assign({
-            apikey: SUPABASE_ANON_KEY,
-            Authorization: "Bearer " + SUPABASE_ANON_KEY
+            "x-passcode": getStoredPasscode()
           }, extra || {});
         }
         function scheduleFlush() {
@@ -110,14 +109,14 @@
             if (isSystemKey(key)) return Promise.resolve();
             var value = window.localStorage.getItem(key);
             if (value === null) {
-              return fetch(SUPABASE_URL + "/rest/v1/kv_store?key=eq." + encodeURIComponent(key), {
+              return fetch("/api/data?key=" + encodeURIComponent(key), {
                 method: "DELETE", headers: headers()
               });
             } else {
-              return fetch(SUPABASE_URL + "/rest/v1/kv_store", {
+              return fetch("/api/data", {
                 method: "POST",
-                headers: headers({ "Content-Type": "application/json", Prefer: "resolution=merge-duplicates" }),
-                body: JSON.stringify({ key: key, value: value, updated_at: new Date().toISOString() })
+                headers: headers({ "Content-Type": "application/json" }),
+                body: JSON.stringify({ key: key, value: value })
               });
             }
           });
@@ -150,13 +149,12 @@
       }
 
       function hydrateFromSupabase() {
-        if (!SUPABASE_URL || SUPABASE_URL.indexOf("PASTE_") === 0) return Promise.resolve();
-        return fetch(SUPABASE_URL + "/rest/v1/kv_store?select=key,value", {
-          headers: { apikey: SUPABASE_ANON_KEY, Authorization: "Bearer " + SUPABASE_ANON_KEY }
+        return fetch("/api/data", {
+          headers: { "x-passcode": getStoredPasscode() }
         }).then(function (res) { return res.ok ? res.json() : []; })
           .then(function (rows) {
             var origSetItem = window.localStorage.setItem.bind(window.localStorage);
-            rows.forEach(function (r) { origSetItem(r.key, r.value); });
+            (rows || []).forEach(function (r) { origSetItem(r.key, r.value); });
           }).catch(function () {});
       }
 
@@ -182,8 +180,10 @@
               var remember = document.getElementById("gateRemember").checked;
               if (remember) {
                 window.localStorage.setItem(UNLOCK_KEY, String(Date.now() + REMEMBER_DAYS * 86400000));
+                window.localStorage.setItem(API_PASSCODE_KEY, val);
               } else {
                 sessionStorage.setItem(UNLOCK_KEY, "1");
+                sessionStorage.setItem(API_PASSCODE_KEY, val);
               }
               overlay.remove();
               launchApp();
@@ -10922,23 +10922,16 @@ function NQ() {
             incidentReports: BQ(),
             disciplinaryActions: g0()
         };
-    if (!window.SUPABASE_URL || String(window.SUPABASE_URL).indexOf("PASTE_") === 0) {
-        alert("Cloud backup is not configured yet.");
-        return
-    }
     const backupKey = "manual_backup_" + new Date().toISOString().replace(/[:.]/g, "-");
-    fetch(window.SUPABASE_URL + "/rest/v1/kv_store", {
+    fetch("/api/data", {
         method: "POST",
         headers: {
-            apikey: window.SUPABASE_ANON_KEY,
-            Authorization: "Bearer " + window.SUPABASE_ANON_KEY,
-            "Content-Type": "application/json",
-            Prefer: "resolution=merge-duplicates"
+            "x-passcode": window.getStoredPasscode ? window.getStoredPasscode() : "",
+            "Content-Type": "application/json"
         },
         body: JSON.stringify({
             key: backupKey,
-            value: JSON.stringify(A),
-            updated_at: new Date().toISOString()
+            value: JSON.stringify(A)
         })
     }).then(r => {
         if (r.ok) alert(`Backup saved to cloud database.\n\n${A.eodRecords.length} EOD records, ${A.branches.length} branches, ${A.staff.length} staff.\nSaved as: ${backupKey}`);
