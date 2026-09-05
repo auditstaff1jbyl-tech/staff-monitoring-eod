@@ -169,7 +169,6 @@
           '<div style="font-weight:800;font-size:18px;letter-spacing:.05em;color:#2C2A29;margin-bottom:4px;">EOD MONITORING MATRIX</div>' +
           '<div style="font-size:12px;color:#6C655B;margin-bottom:20px;">Enter passcode to continue</div>' +
           '<input id="gateInput" type="password" autocomplete="off" style="width:100%;padding:10px 12px;border:1px solid #EAE3D5;border-radius:8px;font-size:15px;outline:none;box-sizing:border-box;" placeholder="Passcode" />' +
-          '<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#6C655B;margin-top:12px;justify-content:center;"><input id="gateRemember" type="checkbox" checked /> Remember on this device</label>' +
           '<div id="gateError" style="color:#B53D43;font-size:12px;height:16px;margin-top:8px;"></div>' +
           '<button type="submit" style="margin-top:8px;width:100%;padding:10px;background:#1B1918;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;">Unlock</button>' +
           '</form>';
@@ -180,14 +179,7 @@
           var val = document.getElementById("gateInput").value;
           sha256(val).then(function (hash) {
             if (PASSCODE_HASHES.includes(hash)) {
-              var remember = document.getElementById("gateRemember").checked;
-              if (remember) {
-                window.localStorage.setItem(UNLOCK_KEY, String(Date.now() + REMEMBER_DAYS * 86400000));
-                window.localStorage.setItem(API_PASSCODE_KEY, val);
-              } else {
-                sessionStorage.setItem(UNLOCK_KEY, "1");
-                sessionStorage.setItem(API_PASSCODE_KEY, val);
-              }
+              sessionStorage.setItem(API_PASSCODE_KEY, val);
               overlay.remove();
               launchApp();
             } else {
@@ -204,11 +196,7 @@
           document.body.innerHTML = '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:sans-serif;color:#B53D43;text-align:center;padding:20px;">Passcode not configured yet.<br/>Set PASSCODE_HASH in index.html (see SUPABASE_SETUP.md).</div>';
           return;
         }
-        if ((isUnlocked() || isUnlockedThisTab()) && getStoredPasscode()) {
-          launchApp();
-        } else {
-          showGate();
-        }
+        showGate();
       });
     })();
 
