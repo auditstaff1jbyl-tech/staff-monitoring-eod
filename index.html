@@ -201,7 +201,7 @@
           document.body.innerHTML = '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:sans-serif;color:#B53D43;text-align:center;padding:20px;">Passcode not configured yet.<br/>Set PASSCODE_HASH in index.html (see SUPABASE_SETUP.md).</div>';
           return;
         }
-        if (isUnlocked() || isUnlockedThisTab()) {
+        if ((isUnlocked() || isUnlockedThisTab()) && getStoredPasscode()) {
           launchApp();
         } else {
           showGate();
