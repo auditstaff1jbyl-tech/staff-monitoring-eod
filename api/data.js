@@ -26,7 +26,7 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === "GET") {
-      const r = await fetch(`${SUPABASE_URL}/rest/v1/kv_store?select=key,value`, { headers: sbHeaders });
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/kv_store?select=key,value&key=like.eod_matrix_*`, { headers: sbHeaders });
       const data = await r.json();
       return res.status(r.status).json(data);
     }
