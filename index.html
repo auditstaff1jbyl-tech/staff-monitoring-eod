@@ -87,6 +87,21 @@
         }
       }
 
+      var lastKnownSnapshot = {}; // key -> Map(id -> serialized JSON) for decomposable arrays
+
+      function tryDecompose(rawValue) {
+        try {
+          var parsed = JSON.parse(rawValue);
+          if (Array.isArray(parsed) && parsed.length > 0 && parsed.every(function (it) { return it && typeof it === "object" && it.id != null; })) {
+            var map = new Map();
+            parsed.forEach(function (it) { map.set(String(it.id), JSON.stringify(it)); });
+            return map;
+          }
+          if (Array.isArray(parsed) && parsed.length === 0) return new Map(); // empty array is decomposable too
+        } catch (e) {}
+        return null; // not a decomposable array (object/string/etc) -> whole-value sync
+      }
+
       function installSupabaseSync() {
         var origSetItem = window.localStorage.setItem.bind(window.localStorage);
         var origRemoveItem = window.localStorage.removeItem.bind(window.localStorage);
@@ -108,21 +123,53 @@
           pending = {};
           if (keys.length === 0) return;
           setSyncStatus("saving");
-          var tasks = keys.map(function (key) {
-            if (isSystemKey(key)) return Promise.resolve();
+          var tasks = [];
+
+          keys.forEach(function (key) {
+            if (isSystemKey(key)) return;
             var value = window.localStorage.getItem(key);
+
             if (value === null) {
-              return fetch("/api/data?key=" + encodeURIComponent(key), {
-                method: "DELETE", headers: headers()
+              // whole key removed
+              if (lastKnownSnapshot[key]) {
+                lastKnownSnapshot[key].forEach(function (_v, id) {
+                  tasks.push(fetch("/api/data?key=" + encodeURIComponent(key + "::" + id), { method: "DELETE", headers: headers() }));
+                });
+                delete lastKnownSnapshot[key];
+              }
+              tasks.push(fetch("/api/data?key=" + encodeURIComponent(key), { method: "DELETE", headers: headers() }));
+              return;
+            }
+
+            var newMap = tryDecompose(value);
+            if (newMap) {
+              var oldMap = lastKnownSnapshot[key] || new Map();
+              newMap.forEach(function (json, id) {
+                if (oldMap.get(id) !== json) {
+                  tasks.push(fetch("/api/data", {
+                    method: "POST",
+                    headers: headers({ "Content-Type": "application/json" }),
+                    body: JSON.stringify({ key: key + "::" + id, value: json })
+                  }));
+                }
               });
+              oldMap.forEach(function (_json, id) {
+                if (!newMap.has(id)) {
+                  tasks.push(fetch("/api/data?key=" + encodeURIComponent(key + "::" + id), { method: "DELETE", headers: headers() }));
+                }
+              });
+              lastKnownSnapshot[key] = newMap;
             } else {
-              return fetch("/api/data", {
+              // not a decomposable array (plain object/string) -> sync as a single whole value
+              tasks.push(fetch("/api/data", {
                 method: "POST",
                 headers: headers({ "Content-Type": "application/json" }),
                 body: JSON.stringify({ key: key, value: value })
-              });
+              }));
             }
           });
+
+          if (tasks.length === 0) { setSyncStatus("saved"); return; }
           Promise.all(tasks).then(function (results) {
             var failed = results.some(function (r) { return r && !r.ok; });
             setSyncStatus(failed ? "error" : "saved");
@@ -157,7 +204,37 @@
         }).then(function (res) { return res.ok ? res.json() : []; })
           .then(function (rows) {
             var origSetItem = window.localStorage.setItem.bind(window.localStorage);
-            (rows || []).forEach(function (r) { origSetItem(r.key, r.value); });
+            var groups = {}; // baseKey -> Map(id -> parsedItem)
+            var wholeValues = {}; // baseKey -> raw value (non-decomposed rows)
+
+            (rows || []).forEach(function (r) {
+              var sep = r.key.indexOf("::");
+              if (sep === -1) {
+                wholeValues[r.key] = r.value;
+              } else {
+                var baseKey = r.key.slice(0, sep);
+                var id = r.key.slice(sep + 2);
+                if (!groups[baseKey]) groups[baseKey] = new Map();
+                try { groups[baseKey].set(id, JSON.parse(r.value)); } catch (e) {}
+              }
+            });
+
+            // Apply decomposed groups (these take priority over any legacy whole-blob row for the same key)
+            Object.keys(groups).forEach(function (baseKey) {
+              var items = Array.from(groups[baseKey].values());
+              origSetItem(baseKey, JSON.stringify(items));
+              var snapMap = new Map();
+              groups[baseKey].forEach(function (item, id) { snapMap.set(id, JSON.stringify(item)); });
+              lastKnownSnapshot[baseKey] = snapMap;
+            });
+
+            // Apply whole-value rows for keys that have no decomposed group yet (config objects, or not-yet-migrated arrays)
+            Object.keys(wholeValues).forEach(function (baseKey) {
+              if (groups[baseKey]) return; // already handled via decomposed group
+              origSetItem(baseKey, wholeValues[baseKey]);
+              var maybeMap = tryDecompose(wholeValues[baseKey]);
+              if (maybeMap) lastKnownSnapshot[baseKey] = maybeMap; // will migrate to per-record rows on next save
+            });
           }).catch(function () {});
       }
 
