@@ -16,6 +16,10 @@
       "8fae968cc94c4353192d6993c65d92a43a6683de668960107c899a65191ef341",
       "80b09a7709e3ef167a11446bd2976a4f57d3ff1961e72d4e79e0965002d0f367"
     ];
+    var USER_DIRECTORY = [
+      { passcode: "eod-vtdua8", slug: "auditstaff1", name: "Audit Staff 1" },
+      { passcode: "eod-vaoz2z", slug: "auditstaff2", name: "Audit Staff 2" }
+    ];
 
     (function () {
       var UNLOCK_KEY = "__gate_unlocked_until";
@@ -46,6 +50,7 @@
 
       function launchApp() {
         buildSyncBadge();
+        buildPresenceWidget();
         installSupabaseSync();
         hydrateFromSupabase().finally(function () {
           var src = document.getElementById("app-bundle").textContent;
@@ -54,6 +59,74 @@
           s.textContent = src;
           document.body.appendChild(s);
         });
+      }
+
+      var currentUser = null; // {passcode, slug, name}
+      function resolveCurrentUser() {
+        var pc = getStoredPasscode();
+        for (var i = 0; i < USER_DIRECTORY.length; i++) {
+          if (USER_DIRECTORY[i].passcode === pc) return USER_DIRECTORY[i];
+        }
+        return null;
+      }
+
+      function buildPresenceWidget() {
+        currentUser = resolveCurrentUser();
+        var bar = document.createElement("div");
+        bar.style.cssText = "position:fixed;top:14px;left:14px;z-index:99999;display:flex;gap:8px;font-family:-apple-system,Segoe UI,Roboto,sans-serif;";
+        document.body.appendChild(bar);
+
+        var pillEls = {};
+        USER_DIRECTORY.forEach(function (u) {
+          var pill = document.createElement("div");
+          pill.style.cssText = "display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:20px;background:#FAF7F2;box-shadow:0 4px 12px rgba(0,0,0,.15);font-size:11.5px;font-weight:600;color:#2C2A29;border:1px solid #EAE3D5;";
+          var dot = document.createElement("span");
+          dot.style.cssText = "width:8px;height:8px;border-radius:50%;background:#C9C2B4;display:inline-block;transition:background .3s;";
+          var label = document.createElement("span");
+          label.textContent = u.name + (currentUser && currentUser.slug === u.slug ? " (you)" : "");
+          pill.appendChild(dot);
+          pill.appendChild(label);
+          bar.appendChild(pill);
+          pillEls[u.slug] = dot;
+        });
+
+        function sendHeartbeat() {
+          if (!currentUser) return;
+          fetch("/api/data", {
+            method: "POST",
+            headers: { "x-passcode": getStoredPasscode(), "Content-Type": "application/json" },
+            body: JSON.stringify({
+              key: "presence:" + currentUser.slug,
+              value: JSON.stringify({ name: currentUser.name, ts: Date.now() })
+            })
+          }).catch(function () {});
+        }
+
+        function pollPresence() {
+          fetch("/api/data?presence=1", { headers: { "x-passcode": getStoredPasscode() } })
+            .then(function (res) { return res.ok ? res.json() : []; })
+            .then(function (rows) {
+              var now = Date.now();
+              var seen = {};
+              (rows || []).forEach(function (r) {
+                var slug = r.key.replace("presence:", "");
+                try {
+                  var info = JSON.parse(r.value);
+                  seen[slug] = (now - info.ts) < 45000; // online if heartbeat within last 45s
+                } catch (e) {}
+              });
+              Object.keys(pillEls).forEach(function (slug) {
+                pillEls[slug].style.background = seen[slug] ? "#2FAE66" : "#C9C2B4";
+              });
+            }).catch(function () {});
+        }
+
+        if (currentUser) {
+          sendHeartbeat();
+          setInterval(sendHeartbeat, 20000);
+        }
+        pollPresence();
+        setInterval(pollPresence, 15000);
       }
 
       var syncBadgeEl = null;
