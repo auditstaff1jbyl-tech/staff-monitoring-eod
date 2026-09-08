@@ -30,9 +30,12 @@
       function isSystemKey(k) { return k === UNLOCK_KEY || k === DISPLAY_KEY || k === API_PASSCODE_KEY; }
 
       function getStoredPasscode() {
-        return window.localStorage.getItem(API_PASSCODE_KEY) || sessionStorage.getItem(API_PASSCODE_KEY) || "";
+        return sessionStorage.getItem(API_PASSCODE_KEY) || "";
       }
       window.getStoredPasscode = getStoredPasscode;
+      // Purge any stale passcode left over from the old "remember on this device" feature.
+      try { window.localStorage.removeItem(API_PASSCODE_KEY); } catch (e) {}
+      try { window.localStorage.removeItem(UNLOCK_KEY); } catch (e) {}
 
       function sha256(str) {
         return crypto.subtle.digest("SHA-256", new TextEncoder().encode(str)).then(function (buf) {
@@ -73,7 +76,7 @@
       function buildPresenceWidget() {
         currentUser = resolveCurrentUser();
         var bar = document.createElement("div");
-        bar.style.cssText = "position:fixed;top:14px;left:14px;z-index:99999;display:flex;gap:8px;font-family:-apple-system,Segoe UI,Roboto,sans-serif;";
+        bar.style.cssText = "position:fixed;top:14px;right:14px;z-index:99999;display:flex;gap:8px;font-family:-apple-system,Segoe UI,Roboto,sans-serif;";
         document.body.appendChild(bar);
 
         var pillEls = {};
@@ -133,7 +136,7 @@
       var syncBadgeHideTimer = null;
       function buildSyncBadge() {
         syncBadgeEl = document.createElement("div");
-        syncBadgeEl.style.cssText = "position:fixed;top:14px;right:14px;z-index:99999;font-family:-apple-system,Segoe UI,Roboto,sans-serif;font-size:11.5px;font-weight:600;padding:6px 12px;border-radius:20px;box-shadow:0 4px 12px rgba(0,0,0,.2);display:none;align-items:center;gap:6px;transition:opacity .3s;";
+        syncBadgeEl.style.cssText = "position:fixed;top:58px;right:14px;z-index:99999;font-family:-apple-system,Segoe UI,Roboto,sans-serif;font-size:11.5px;font-weight:600;padding:6px 12px;border-radius:20px;box-shadow:0 4px 12px rgba(0,0,0,.2);display:none;align-items:center;gap:6px;transition:opacity .3s;";
         document.body.appendChild(syncBadgeEl);
       }
       function setSyncStatus(status) {
