@@ -35,7 +35,8 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === "GET") {
-      const r = await fetch(`${SUPABASE_URL}/rest/v1/kv_store?select=key,value&key=like.eod_matrix_*`, { headers: sbHeaders });
+      const pattern = req.query.presence ? "presence:*" : "eod_matrix_*";
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/kv_store?select=key,value&key=like.${pattern}`, { headers: sbHeaders });
       const data = await r.json();
       return res.status(r.status).json(data);
     }
