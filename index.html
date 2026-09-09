@@ -13754,6 +13754,7 @@ const gL = [
             [N, F] = ve.useState("ALL"),
             [j, L] = ve.useState("ALL"),
             [_, k] = ve.useState("weekly"),
+            [prSort, setPrSort] = ve.useState("exposure"),
             [R, V] = ve.useState(null),
             O = ve.useMemo(() => X5(A || [], v), [A, v]),
             {
@@ -13836,8 +13837,10 @@ const gL = [
             Pe = ve.useMemo(() => p0(e || [], ot, A || [], c || [], g), [e, ot, A, c, g]),
             pt = ve.useMemo(() => {
                 let he = q;
-                return j === "FG" ? he = Ee : j === "RM" && (he = Pe), (he || []).filter(Re => (Re.issueCount || Re.totalIssues || 0) > 0)
-            }, [j, q, Ee, Pe]),
+                j === "FG" ? he = Ee : j === "RM" && (he = Pe);
+                let filtered = (he || []).filter(Re => (Re.issueCount || Re.totalIssues || 0) > 0);
+                return [...filtered].sort((a, b) => prSort === "count" ? ((b.issueCount || b.totalIssues || 0) - (a.issueCount || a.totalIssues || 0)) : ((b.financialExposure || 0) - (a.financialExposure || 0)));
+            }, [j, q, Ee, Pe, prSort]),
             nt = ve.useMemo(() => (Ee || []).filter(he => (he.issueCount || he.totalIssues || 0) > 0), [Ee]),
             mt = ve.useMemo(() => (Pe || []).filter(he => (he.issueCount || he.totalIssues || 0) > 0), [Pe]),
             xt = ve.useMemo(() => nt.reduce((he, Re) => he + (Re.financialExposure || 0), 0), [nt]),
@@ -14666,9 +14669,26 @@ const gL = [
                                     className: "text-[11px] text-[#6C655B]",
                                     children: "Weighted risk index (40% Fin, 30% Freq, 20% Repeat, 10% Unresolved) segregated by production category"
                                 })]
-                            }), u.jsxs("span", {
-                                className: "text-[10px] font-mono font-bold bg-[#FAF7F2] text-[#6C655B] px-2.5 py-1 rounded-full border border-[#EAE3D5] self-start sm:self-auto",
-                                children: [pt.length, " active cases"]
+                            }), u.jsxs("div", {
+                                className: "flex items-center gap-2 self-start sm:self-auto",
+                                children: [u.jsxs("div", {
+                                    className: "flex items-center gap-1 bg-[#FAF7F2] p-1 rounded-lg border border-[#EAE3D5] text-[10px]",
+                                    children: [u.jsx("span", {
+                                        className: "text-[9.5px] text-[#6C655B] font-medium px-1",
+                                        children: "Sort:"
+                                    }), u.jsx("button", {
+                                        onClick: () => setPrSort("exposure"),
+                                        className: `px-2 py-0.5 rounded font-semibold cursor-pointer transition-colors ${prSort==="exposure"?"bg-[#C5A059] text-black font-bold":"text-[#6C655B] hover:text-gray-900"}`,
+                                        children: "Loss"
+                                    }), u.jsx("button", {
+                                        onClick: () => setPrSort("count"),
+                                        className: `px-2 py-0.5 rounded font-semibold cursor-pointer transition-colors ${prSort==="count"?"bg-[#C5A059] text-black font-bold":"text-[#6C655B] hover:text-gray-900"}`,
+                                        children: "Incidents"
+                                    })]
+                                }), u.jsxs("span", {
+                                    className: "text-[10px] font-mono font-bold bg-[#FAF7F2] text-[#6C655B] px-2.5 py-1 rounded-full border border-[#EAE3D5]",
+                                    children: [pt.length, " active cases"]
+                                })]
                             })]
                         }), u.jsxs("div", {
                             className: "grid grid-cols-3 gap-1.5 p-1 bg-[#FAF7F2] rounded-xl border border-[#EAE3D5] mb-3",
