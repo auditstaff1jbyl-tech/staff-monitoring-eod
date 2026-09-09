@@ -14420,35 +14420,44 @@ const gL = [
                     }), u.jsxs("div", {
                         className: "pt-2",
                         children: [u.jsx("div", {
-                            className: "flex items-end gap-3 overflow-x-auto pb-2 px-1",
-                            style: { minHeight: "220px" },
+                            className: "grid gap-1.5",
+                            style: { gridTemplateColumns: `repeat(${de.length}, minmax(0,1fr))` },
                             children: [...de].sort((a, b) => (p === "exposure" ? b.financialExposure - a.financialExposure : b.totalIncidents - a.totalIncidents)).map((he, idx, arr) => {
-                                const maxVal = Math.max(...arr.map(rt => p === "exposure" ? rt.financialExposure : rt.totalIncidents), 1),
+                                const PALETTE = [["#8B5CF6", "#6D28D9"], ["#EC4899", "#BE185D"], ["#3B82F6", "#1D4ED8"], ["#06B6D4", "#0E7490"], ["#10B981", "#047857"], ["#F59E0B", "#B45309"], ["#EF4444", "#B91C1C"], ["#6366F1", "#4338CA"]],
+                                    maxVal = Math.max(...arr.map(rt => p === "exposure" ? rt.financialExposure : rt.totalIncidents), 1),
                                     val = p === "exposure" ? he.financialExposure : he.totalIncidents,
-                                    barHeightPx = Math.max(24, Math.round(val / maxVal * 160)),
-                                    hue = arr.length > 1 ? 280 - (280 - 172) * (idx / (arr.length - 1)) : 260,
+                                    barHeightPx = Math.max(18, Math.round(val / maxVal * 140)),
+                                    [c1, c2] = PALETTE[idx % PALETTE.length],
                                     label = p === "exposure" ? Qt(he.financialExposure) : String(he.totalIncidents);
                                 return u.jsxs("div", {
-                                    className: "flex flex-col items-center shrink-0",
-                                    style: { width: "68px" },
+                                    className: "flex flex-col items-center min-w-0",
                                     children: [u.jsx("div", {
-                                        className: "text-[10px] font-mono font-extrabold text-gray-800 mb-1 whitespace-nowrap",
-                                        children: label
+                                        className: "h-8 flex items-end justify-center w-full mb-1",
+                                        children: u.jsx("span", {
+                                            className: "text-[9.5px] font-mono font-extrabold text-gray-800 text-center leading-tight break-words",
+                                            children: label
+                                        })
                                     }), u.jsx("div", {
-                                        className: "w-10 rounded-t-lg shadow-sm transition-all duration-300",
-                                        style: {
-                                            height: `${barHeightPx}px`,
-                                            background: `linear-gradient(180deg, hsl(${hue},78%,58%) 0%, hsl(${hue},70%,42%) 100%)`
-                                        }
+                                        className: "w-full flex items-end justify-center",
+                                        style: { height: "142px" },
+                                        children: u.jsx("div", {
+                                            className: "w-full max-w-[34px] rounded-t-md shadow-sm transition-all duration-300",
+                                            style: { height: `${barHeightPx}px`, background: `linear-gradient(180deg, ${c1} 0%, ${c2} 100%)` }
+                                        })
                                     }), u.jsx("div", {
-                                        className: "text-[10px] font-bold text-gray-700 mt-2 whitespace-nowrap",
-                                        style: { writingMode: "vertical-rl", transform: "rotate(180deg)", maxHeight: "90px" },
-                                        children: he.issueType
+                                        className: "w-full mt-2 flex items-start justify-center",
+                                        style: { height: "32px" },
+                                        children: u.jsx("span", {
+                                            className: "text-[8.5px] font-bold text-gray-700 text-center px-0.5 break-words",
+                                            style: { display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", lineHeight: "1.15" },
+                                            title: he.issueType,
+                                            children: he.issueType
+                                        })
                                     })]
                                 }, he.issueType)
                             })
                         }), u.jsx("p", {
-                            className: "text-[10px] text-[#6C655B] text-center mt-2 italic",
+                            className: "text-[10px] text-[#6C655B] text-center mt-3 italic",
                             children: p === "exposure" ? "Ranked by financial exposure (\u20b1)" : "Ranked by incident count"
                         })]
                     })]
