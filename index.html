@@ -14419,9 +14419,10 @@ const gL = [
                         })]
                     }), u.jsxs("div", {
                         className: "pt-2",
+                        style: { overflow: "visible" },
                         children: [u.jsx("div", {
-                            className: "grid gap-1.5",
-                            style: { gridTemplateColumns: `repeat(${de.length}, minmax(0,1fr))` },
+                            className: "grid gap-3",
+                            style: { gridTemplateColumns: `repeat(${de.length}, minmax(0,1fr))`, overflow: "visible" },
                             children: [...de].sort((a, b) => (p === "exposure" ? b.financialExposure - a.financialExposure : b.totalIncidents - a.totalIncidents)).map((he, idx, arr) => {
                                 const PALETTE = [["#8B5CF6", "#6D28D9"], ["#EC4899", "#BE185D"], ["#3B82F6", "#1D4ED8"], ["#06B6D4", "#0E7490"], ["#10B981", "#047857"], ["#F59E0B", "#B45309"], ["#EF4444", "#B91C1C"], ["#6366F1", "#4338CA"]],
                                     maxVal = Math.max(...arr.map(rt => p === "exposure" ? rt.financialExposure : rt.totalIncidents), 1),
@@ -14431,6 +14432,7 @@ const gL = [
                                     label = p === "exposure" ? (he.financialExposure >= 1000 ? "\u20b1" + (he.financialExposure / 1000).toFixed(1) + "K" : Qt(he.financialExposure)) : String(he.totalIncidents);
                                 return u.jsxs("div", {
                                     className: "flex flex-col items-center min-w-0",
+                                    style: { overflow: "visible" },
                                     children: [u.jsx("div", {
                                         className: "h-8 flex items-end justify-center w-full mb-1 px-0.5",
                                         children: u.jsx("span", {
@@ -14446,19 +14448,18 @@ const gL = [
                                             style: { height: `${barHeightPx}px`, background: `linear-gradient(180deg, ${c1} 0%, ${c2} 100%)` }
                                         })
                                     }), u.jsx("div", {
-                                        className: "w-full mt-2 flex items-start justify-center",
-                                        style: { height: "32px" },
+                                        className: "w-full flex justify-center",
+                                        style: { height: "90px", overflow: "visible", position: "relative" },
                                         children: u.jsx("span", {
-                                            className: "text-[8.5px] font-bold text-gray-700 text-center px-0.5 break-words",
-                                            style: { display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", lineHeight: "1.15" },
-                                            title: he.issueType,
+                                            className: "text-[10px] font-bold text-gray-700",
+                                            style: { whiteSpace: "nowrap", display: "inline-block", transform: "rotate(-40deg)", transformOrigin: "top left", position: "absolute", top: "4px", left: "50%" },
                                             children: he.issueType
                                         })
                                     })]
                                 }, he.issueType)
                             })
                         }), u.jsx("p", {
-                            className: "text-[10px] text-[#6C655B] text-center mt-3 italic",
+                            className: "text-[10px] text-[#6C655B] text-center mt-8 italic",
                             children: p === "exposure" ? "Ranked by financial exposure (\u20b1)" : "Ranked by incident count"
                         })]
                     })]
