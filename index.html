@@ -13602,7 +13602,7 @@ const gL = [
                                         children: y
                                     }), u.jsxs("span", {
                                         className: "text-[10px] text-[#6C655B]",
-                                        children: ["Qty: ", p.quantity, " units (", p.count, " records)"]
+                                        children: ["Qty: ", Number(p.quantity.toFixed(2)).toString(), " units (", p.count, " records)"]
                                     })]
                                 }), u.jsx("span", {
                                     className: "font-mono font-bold text-red-600 mt-2 text-xs",
@@ -14581,7 +14581,7 @@ const gL = [
                                         className: "text-[10px] text-[#6C655B] flex items-center gap-2 mt-1",
                                         children: [u.jsxs("span", {
                                             className: "font-mono font-semibold",
-                                            children: ["Qty: ", he.totalQuantity]
+                                            children: ["Qty: ", Number(he.totalQuantity.toFixed(2)).toString()]
                                         }), u.jsx("span", {
                                             children: "•"
                                         }), u.jsxs("span", {
