@@ -13768,7 +13768,7 @@ const gL = [
                 dateTo: D
             }) : [], [A, v, re, D, M]),
             q = ve.useMemo(() => p0(e || [], O, A || [], c || [], g), [e, O, A, c, g]),
-            le = ve.useMemo(() => OQ(t || [], O, z, q, c || [], g), [t, O, z, q, c, g]),
+            le = ve.useMemo(() => OQ(t || [], O, z, q, c || [], g).filter(he => he.issues > 0), [t, O, z, q, c, g]),
             X = ve.useMemo(() => DQ(r || [], O), [r, O]),
             ee = ve.useMemo(() => RQ(i || [], O, z), [i, O, z]),
             ne = ve.useMemo(() => (O || []).reduce((he, Re) => he + (Number(Re.totalFinancialImpact) || 0), 0), [O]),
