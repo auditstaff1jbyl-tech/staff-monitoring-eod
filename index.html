@@ -14428,13 +14428,14 @@ const gL = [
                                     val = p === "exposure" ? he.financialExposure : he.totalIncidents,
                                     barHeightPx = Math.max(18, Math.round(val / maxVal * 140)),
                                     [c1, c2] = PALETTE[idx % PALETTE.length],
-                                    label = p === "exposure" ? Qt(he.financialExposure) : String(he.totalIncidents);
+                                    label = p === "exposure" ? (he.financialExposure >= 1000 ? "\u20b1" + (he.financialExposure / 1000).toFixed(1) + "K" : Qt(he.financialExposure)) : String(he.totalIncidents);
                                 return u.jsxs("div", {
                                     className: "flex flex-col items-center min-w-0",
                                     children: [u.jsx("div", {
-                                        className: "h-8 flex items-end justify-center w-full mb-1",
+                                        className: "h-8 flex items-end justify-center w-full mb-1 px-0.5",
                                         children: u.jsx("span", {
-                                            className: "text-[9.5px] font-mono font-extrabold text-gray-800 text-center leading-tight break-words",
+                                            className: "text-[9px] font-mono font-extrabold text-gray-800 text-center leading-tight w-full overflow-hidden text-ellipsis whitespace-nowrap",
+                                            title: p === "exposure" ? Qt(he.financialExposure) : String(he.totalIncidents),
                                             children: label
                                         })
                                     }), u.jsx("div", {
