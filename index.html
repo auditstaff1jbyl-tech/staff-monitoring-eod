@@ -30892,7 +30892,13 @@ const g8 = ({
                     exposure: 0
                 }), _[R].issues++, _[R].exposure += Number(k.totalFinancialImpact || 0)
             }), Object.entries(_).sort((k, R) => R[1].exposure - k[1].exposure)
-        }, [p]), [viewMode, setViewMode] = ve.useState("branch"), [issueSearch, setIssueSearch] = ve.useState(""), itemsByIssueSearch = ve.useMemo(() => {
+        }, [p]), [viewMode, setViewMode] = ve.useState("branch"), [issueSearch, setIssueSearch] = ve.useState(""), [showSuggest, setShowSuggest] = ve.useState(!1), issueTypeSuggestions = ve.useMemo(() => {
+            const term = issueSearch.trim().toLowerCase();
+            const namesFromConfig = (r || []).map(t2 => t2.name).filter(Boolean);
+            const namesFromData = Array.from(new Set(p.map(rec => rec.issueType).filter(Boolean)));
+            const allNames = Array.from(new Set([...namesFromConfig, ...namesFromData]));
+            return term ? allNames.filter(n => n.toLowerCase().includes(term)) : allNames;
+        }, [issueSearch, r, p]), itemsByIssueSearch = ve.useMemo(() => {
             const term = issueSearch.trim().toLowerCase();
             if (!term) return [];
             const matching = p.filter(rec => (rec.issueType || "").toLowerCase().includes(term));
@@ -31152,12 +31158,25 @@ const g8 = ({
                                     children: "Issue Type View"
                                 })]
                             })]
-                        }), viewMode === "issue" && u.jsx("input", {
-                            type: "text",
-                            value: issueSearch,
-                            onChange: ev => setIssueSearch(ev.target.value),
-                            placeholder: "Search issue type (e.g. Wrong EOD)...",
-                            className: "w-full px-3 py-2 border-2 border-[#EAE3D5] rounded-lg text-sm font-medium text-gray-900 focus:outline-none focus:border-[#C5A059] placeholder:text-gray-400"
+                        }), viewMode === "issue" && u.jsxs("div", {
+                            className: "relative",
+                            children: [u.jsx("input", {
+                                type: "text",
+                                value: issueSearch,
+                                onChange: ev => { setIssueSearch(ev.target.value); setShowSuggest(!0); },
+                                onFocus: () => setShowSuggest(!0),
+                                onBlur: () => setTimeout(() => setShowSuggest(!1), 150),
+                                placeholder: "Search issue type (e.g. Wrong EOD)...",
+                                className: "w-full px-3 py-2 border-2 border-[#EAE3D5] rounded-lg text-sm font-medium text-gray-900 focus:outline-none focus:border-[#C5A059] placeholder:text-gray-400"
+                            }), showSuggest && issueTypeSuggestions.length > 0 && u.jsx("div", {
+                                className: "absolute z-20 top-full left-0 right-0 mt-1 bg-white border-2 border-[#EAE3D5] rounded-lg shadow-lg max-h-48 overflow-y-auto",
+                                children: issueTypeSuggestions.map(name => u.jsx("button", {
+                                    type: "button",
+                                    onClick: () => { setIssueSearch(name); setShowSuggest(!1); },
+                                    className: "w-full text-left px-3 py-2 text-sm font-semibold text-gray-800 hover:bg-[#FAF7F2] cursor-pointer border-b border-[#FAF2E5] last:border-b-0",
+                                    children: name
+                                }, name))
+                            })]
                         })]
                     }), viewMode === "branch" ? u.jsx("div", {
                         className: "overflow-x-auto border border-[#EAE3D5] rounded-xl max-h-[380px]",
