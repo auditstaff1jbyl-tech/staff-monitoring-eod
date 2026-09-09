@@ -14417,41 +14417,40 @@ const gL = [
                                 children: "Count"
                             })]
                         })]
-                    }), u.jsx("div", {
-                        className: "space-y-3",
-                        children: de.map(he => {
-                            const Re = Math.max(...de.map(rt => rt.financialExposure), 1),
-                                et = Math.min(100, Math.round(he.financialExposure / Re * 100));
-                            return u.jsxs("div", {
-                                className: "p-3 rounded-xl border border-[#EAE3D5] bg-[#FAF7F2]/30 space-y-1.5 text-xs",
-                                children: [u.jsxs("div", {
-                                    className: "flex items-center justify-between",
-                                    children: [u.jsx("span", {
-                                        className: "font-bold text-gray-900",
-                                        children: he.issueType
-                                    }), u.jsx("span", {
-                                        className: "font-mono font-bold text-red-600",
-                                        children: Qt(he.financialExposure)
-                                    })]
-                                }), u.jsx("div", {
-                                    className: "w-full bg-[#EAE3D5] h-1.5 rounded-full overflow-hidden",
-                                    children: u.jsx("div", {
-                                        className: "bg-[#C5A059] h-full rounded-full transition-all duration-300",
+                    }), u.jsxs("div", {
+                        className: "pt-2",
+                        children: [u.jsx("div", {
+                            className: "flex items-end gap-3 overflow-x-auto pb-2 px-1",
+                            style: { minHeight: "220px" },
+                            children: [...de].sort((a, b) => (p === "exposure" ? b.financialExposure - a.financialExposure : b.totalIncidents - a.totalIncidents)).map((he, idx, arr) => {
+                                const maxVal = Math.max(...arr.map(rt => p === "exposure" ? rt.financialExposure : rt.totalIncidents), 1),
+                                    val = p === "exposure" ? he.financialExposure : he.totalIncidents,
+                                    barHeightPx = Math.max(24, Math.round(val / maxVal * 160)),
+                                    hue = arr.length > 1 ? 280 - (280 - 172) * (idx / (arr.length - 1)) : 260,
+                                    label = p === "exposure" ? Qt(he.financialExposure) : String(he.totalIncidents);
+                                return u.jsxs("div", {
+                                    className: "flex flex-col items-center shrink-0",
+                                    style: { width: "68px" },
+                                    children: [u.jsx("div", {
+                                        className: "text-[10px] font-mono font-extrabold text-gray-800 mb-1 whitespace-nowrap",
+                                        children: label
+                                    }), u.jsx("div", {
+                                        className: "w-10 rounded-t-lg shadow-sm transition-all duration-300",
                                         style: {
-                                            width: `${et}%`
+                                            height: `${barHeightPx}px`,
+                                            background: `linear-gradient(180deg, hsl(${hue},78%,58%) 0%, hsl(${hue},70%,42%) 100%)`
                                         }
-                                    })
-                                }), u.jsxs("div", {
-                                    className: "flex items-center justify-between text-[10.5px] text-[#6C655B] font-mono",
-                                    children: [u.jsxs("span", {
-                                        children: [he.totalIncidents, " incidents across ", he.branchesInvolvedCount, " branches"]
-                                    }), he.trendDirection === "Increasing" && u.jsxs("span", {
-                                        className: "text-red-600 font-bold",
-                                        children: ["+", he.trendPercentage.toFixed(1), "% surge"]
+                                    }), u.jsx("div", {
+                                        className: "text-[10px] font-bold text-gray-700 mt-2 whitespace-nowrap",
+                                        style: { writingMode: "vertical-rl", transform: "rotate(180deg)", maxHeight: "90px" },
+                                        children: he.issueType
                                     })]
-                                })]
-                            }, he.issueType)
-                        })
+                                }, he.issueType)
+                            })
+                        }), u.jsx("p", {
+                            className: "text-[10px] text-[#6C655B] text-center mt-2 italic",
+                            children: p === "exposure" ? "Ranked by financial exposure (\u20b1)" : "Ranked by incident count"
+                        })]
                     })]
                 }), u.jsxs("div", {
                     id: "overview-problem-items-card",
