@@ -30892,7 +30892,23 @@ const g8 = ({
                     exposure: 0
                 }), _[R].issues++, _[R].exposure += Number(k.totalFinancialImpact || 0)
             }), Object.entries(_).sort((k, R) => R[1].exposure - k[1].exposure)
-        }, [p]), j = () => {
+        }, [p]), [viewMode, setViewMode] = ve.useState("branch"), [issueSearch, setIssueSearch] = ve.useState(""), itemsByIssueSearch = ve.useMemo(() => {
+            const term = issueSearch.trim().toLowerCase();
+            if (!term) return [];
+            const matching = p.filter(rec => (rec.issueType || "").toLowerCase().includes(term));
+            const map = {};
+            matching.forEach(rec => {
+                (rec.items || []).forEach(it => {
+                    const key = it.itemName || "Unknown Item";
+                    map[key] || (map[key] = { itemName: key, totalQuantity: 0, totalAmount: 0, occurrences: 0, dates: new Set() });
+                    map[key].totalQuantity += Number(it.quantity || 0);
+                    map[key].totalAmount += Number(it.totalPrice || 0);
+                    map[key].occurrences += 1;
+                    rec.date && map[key].dates.add(rec.date);
+                });
+            });
+            return Object.values(map).map(v => ({ ...v, daysCount: v.dates.size })).sort((a, b) => b.totalAmount - a.totalAmount);
+        }, [p, issueSearch]), j = () => {
             y(!0);
             try {
                 const _ = new Ht({
@@ -31116,17 +31132,34 @@ const g8 = ({
                 children: [u.jsxs("section", {
                     className: "lg:col-span-7 bg-white border border-[#EAE3D5] rounded-2xl p-5 shadow-xs space-y-4",
                     children: [u.jsxs("div", {
-                        className: "flex items-center justify-between border-b border-[#FAF7F2] pb-3",
-                        children: [u.jsxs("h3", {
-                            className: "font-serif font-bold text-base text-gray-900 italic flex items-center gap-2",
-                            children: [u.jsx(zu, {
-                                className: "w-4 h-4 text-[#C5A059]"
-                            }), "Overall Branch Breakdown (", L(f), ")"]
-                        }), u.jsxs("span", {
-                            className: "text-[10px] font-mono font-bold bg-[#FAF7F2] text-[#6C655B] px-2.5 py-1 rounded-full border border-[#EAE3D5]",
-                            children: [N.length, " branches"]
+                        className: "flex flex-col gap-3 border-b border-[#FAF7F2] pb-3",
+                        children: [u.jsxs("div", {
+                            className: "flex flex-col sm:flex-row sm:items-center justify-between gap-2",
+                            children: [u.jsxs("h3", {
+                                className: "font-serif font-bold text-base text-gray-900 italic flex items-center gap-2",
+                                children: [u.jsx(zu, {
+                                    className: "w-4 h-4 text-[#C5A059]"
+                                }), viewMode === "branch" ? `Overall Branch Breakdown (${L(f)})` : `Issue Type Breakdown (${L(f)})`]
+                            }), u.jsxs("div", {
+                                className: "flex items-center gap-1 bg-[#FAF7F2] p-1 rounded-lg border border-[#EAE3D5] text-xs",
+                                children: [u.jsx("button", {
+                                    onClick: () => setViewMode("branch"),
+                                    className: `px-3 py-1.5 rounded-md font-bold cursor-pointer transition-colors ${viewMode==="branch"?"bg-[#121110] text-white shadow-xs":"text-[#6C655B] hover:text-black"}`,
+                                    children: "Branch View"
+                                }), u.jsx("button", {
+                                    onClick: () => setViewMode("issue"),
+                                    className: `px-3 py-1.5 rounded-md font-bold cursor-pointer transition-colors ${viewMode==="issue"?"bg-[#121110] text-white shadow-xs":"text-[#6C655B] hover:text-black"}`,
+                                    children: "Issue Type View"
+                                })]
+                            })]
+                        }), viewMode === "issue" && u.jsx("input", {
+                            type: "text",
+                            value: issueSearch,
+                            onChange: ev => setIssueSearch(ev.target.value),
+                            placeholder: "Search issue type (e.g. Wrong EOD)...",
+                            className: "w-full px-3 py-2 border-2 border-[#EAE3D5] rounded-lg text-sm font-medium text-gray-900 focus:outline-none focus:border-[#C5A059] placeholder:text-gray-400"
                         })]
-                    }), u.jsx("div", {
+                    }), viewMode === "branch" ? u.jsx("div", {
                         className: "overflow-x-auto border border-[#EAE3D5] rounded-xl max-h-[380px]",
                         children: u.jsxs("table", {
                             className: "w-full text-left text-xs border-collapse",
@@ -31174,6 +31207,59 @@ const g8 = ({
                                         })
                                     })]
                                 }, _))
+                            })]
+                        })
+                    }) : u.jsx("div", {
+                        className: "overflow-x-auto border border-[#EAE3D5] rounded-xl max-h-[380px]",
+                        children: u.jsxs("table", {
+                            className: "w-full text-left text-xs border-collapse",
+                            children: [u.jsx("thead", {
+                                className: "bg-[#FAF7F2] sticky top-0 border-b border-[#EAE3D5] font-bold text-[#6C655B] text-[10px] uppercase",
+                                children: u.jsxs("tr", {
+                                    children: [u.jsx("th", {
+                                        className: "p-2.5",
+                                        children: "Item"
+                                    }), u.jsx("th", {
+                                        className: "p-2.5 text-center",
+                                        children: "Occurrences"
+                                    }), u.jsx("th", {
+                                        className: "p-2.5 text-center",
+                                        children: "Days"
+                                    }), u.jsx("th", {
+                                        className: "p-2.5 text-right",
+                                        children: "Total Amount"
+                                    })]
+                                })
+                            }), u.jsx("tbody", {
+                                className: "divide-y divide-[#FAF7F2]",
+                                children: !issueSearch.trim() ? u.jsx("tr", {
+                                    children: u.jsx("td", {
+                                        colSpan: 4,
+                                        className: "p-6 text-center text-gray-400 italic",
+                                        children: "Type an issue type above (e.g. Wrong EOD) to see which items were involved."
+                                    })
+                                }) : itemsByIssueSearch.length === 0 ? u.jsx("tr", {
+                                    children: u.jsx("td", {
+                                        colSpan: 4,
+                                        className: "p-6 text-center text-gray-400 italic",
+                                        children: `No items found for "${issueSearch}" this month.`
+                                    })
+                                }) : itemsByIssueSearch.map(it => u.jsxs("tr", {
+                                    className: "hover:bg-[#FAF7F2]/60 transition-colors",
+                                    children: [u.jsx("td", {
+                                        className: "p-2.5 font-bold text-gray-900",
+                                        children: it.itemName
+                                    }), u.jsx("td", {
+                                        className: "p-2.5 text-center font-mono font-bold text-gray-800",
+                                        children: it.occurrences
+                                    }), u.jsx("td", {
+                                        className: "p-2.5 text-center font-mono font-bold text-gray-800",
+                                        children: it.daysCount
+                                    }), u.jsx("td", {
+                                        className: "p-2.5 text-right font-mono font-extrabold text-red-600",
+                                        children: Qt(it.totalAmount)
+                                    })]
+                                }, it.itemName))
                             })]
                         })
                     })]
