@@ -14395,153 +14395,72 @@ const gL = [
                 children: [u.jsxs("div", {
                     id: "overview-issue-types-card",
                     className: "bg-white border border-[#EAE3D5] rounded-2xl p-5 shadow-xs",
-                    children: [(() => {
-                        const __totalExp = de.reduce((s, x) => s + (x.financialExposure || 0), 0),
-                            __sorted = [...de].sort((a, b) => (p === "exposure" ? b.financialExposure - a.financialExposure : b.totalIncidents - a.totalIncidents)),
-                            __top = __sorted[0],
-                            __topShare = __top && __totalExp > 0 ? (__top.financialExposure / __totalExp * 100) : 0,
-                            __worseningCount = de.filter(x => x.trendDirection === "Increasing").length,
-                            __status = __worseningCount === 0 ? "IMPROVING" : __worseningCount >= Math.ceil(de.length / 2) ? "WORSENING" : "STABLE",
-                            __badge = __status === "IMPROVING" ? u.jsxs("span", {
-                                className: "inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full",
-                                children: ["🟢", " Improving"]
-                            }) : __status === "WORSENING" ? u.jsxs("span", {
-                                className: "inline-flex items-center gap-1 text-[10px] font-bold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full",
-                                children: ["🔴", " Worsening"]
-                            }) : u.jsxs("span", {
-                                className: "inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full",
-                                children: ["🟡", " Stable"]
-                            });
-                        return u.jsxs(u.Fragment, {
-                            children: [u.jsxs("div", {
-                                className: "flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-[#FAF2E5]",
-                                children: [u.jsxs("div", {
-                                    children: [u.jsxs("div", {
-                                        className: "flex items-center gap-2",
-                                        children: [u.jsx("h3", {
-                                            className: "font-serif font-bold text-sm text-gray-900 tracking-tight",
-                                            children: "Issue Type Impact & Trends"
-                                        }), __badge]
-                                    }), u.jsx("p", {
-                                        className: "text-[11px] text-[#6C655B] mt-0.5",
-                                        children: "Breakdown by classification category"
-                                    })]
-                                }), u.jsxs("div", {
-                                    className: "flex items-center gap-1 bg-[#FAF7F2] p-1 rounded-lg border border-[#EAE3D5] text-[10px]",
-                                    children: [u.jsx("button", {
-                                        onClick: () => E("exposure"),
-                                        className: `px-2.5 py-1 rounded font-semibold cursor-pointer ${p==="exposure"?"bg-[#C5A059] text-black font-bold":"text-[#6C655B]"}`,
-                                        children: "Loss"
-                                    }), u.jsx("button", {
-                                        onClick: () => E("count"),
-                                        className: `px-2.5 py-1 rounded font-semibold cursor-pointer ${p==="count"?"bg-[#C5A059] text-black font-bold":"text-[#6C655B]"}`,
-                                        children: "Count"
-                                    })]
-                                })]
-                            }), u.jsxs("div", {
-                                className: "grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch",
-                                children: [u.jsxs("div", {
-                                    className: "lg:col-span-8",
-                                    children: [u.jsx("div", {
-                                        className: "flex items-end gap-3 overflow-x-auto pb-2",
-                                        children: __sorted.map((he, idx, arr) => {
-                                            const PALETTE = [["#8B5CF6", "#6D28D9"], ["#EC4899", "#BE185D"], ["#3B82F6", "#1D4ED8"], ["#06B6D4", "#0E7490"], ["#10B981", "#047857"], ["#F59E0B", "#B45309"], ["#EF4444", "#B91C1C"], ["#6366F1", "#4338CA"]],
-                                                maxVal = Math.max(...arr.map(rt => p === "exposure" ? rt.financialExposure : rt.totalIncidents), 1),
-                                                val = p === "exposure" ? he.financialExposure : he.totalIncidents,
-                                                barHeightPx = Math.max(18, Math.round(val / maxVal * 130)),
-                                                [c1, c2] = PALETTE[idx % PALETTE.length],
-                                                label = p === "exposure" ? (he.financialExposure >= 1000 ? "\u20b1" + (he.financialExposure / 1000).toFixed(1) + "K" : Qt(he.financialExposure)) : String(he.totalIncidents);
-                                            return u.jsxs("div", {
-                                                className: "flex flex-col items-center shrink-0",
-                                                style: { width: "92px" },
-                                                children: [u.jsx("div", {
-                                                    className: "h-7 flex items-end justify-center w-full mb-1 px-0.5",
-                                                    children: u.jsx("span", {
-                                                        className: "text-[9.5px] font-mono font-extrabold text-gray-800 text-center leading-tight w-full overflow-hidden text-ellipsis whitespace-nowrap",
-                                                        title: p === "exposure" ? Qt(he.financialExposure) : String(he.totalIncidents),
-                                                        children: label
-                                                    })
-                                                }), u.jsx("div", {
-                                                    className: "w-full flex items-end justify-center",
-                                                    style: { height: "132px" },
-                                                    children: u.jsx("div", {
-                                                        className: "w-full max-w-[36px] rounded-t-md shadow-sm transition-all duration-300",
-                                                        style: { height: `${barHeightPx}px`, background: `linear-gradient(180deg, ${c1} 0%, ${c2} 100%)` }
-                                                    })
-                                                }), u.jsx("div", {
-                                                    className: "w-full mt-2 px-1",
-                                                    style: { minHeight: "44px" },
-                                                    children: u.jsx("span", {
-                                                        className: "text-[9.5px] font-bold text-gray-700 text-center block leading-tight break-words",
-                                                        title: he.issueType,
-                                                        children: he.issueType
-                                                    })
-                                                })]
-                                            }, he.issueType)
-                                        })
-                                    }), u.jsx("p", {
-                                        className: "text-[10px] text-[#6C655B] text-center mt-3 italic",
-                                        children: p === "exposure" ? "Ranked by financial exposure (\u20b1)" : "Ranked by incident count"
-                                    })]
-                                }), u.jsxs("div", {
-                                    className: "lg:col-span-4 flex flex-col justify-between bg-[#FAF7F2] rounded-xl p-4 border border-[#EAE3D5]",
-                                    children: [u.jsxs("div", {
-                                        children: [u.jsxs("div", {
-                                            className: "flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[#8A6A1F] mb-2",
-                                            children: [u.jsx("span", {
-                                                className: "w-1.5 h-1.5 rounded-full bg-[#C5A059]"
-                                            }), "Key Analytical Insight"]
-                                        }), __top && u.jsxs("div", {
-                                            className: "bg-white rounded-lg p-3 border border-[#EAE3D5] shadow-xs mb-3",
-                                            children: [u.jsxs("p", {
-                                                className: "text-xs font-semibold text-gray-900 leading-relaxed",
-                                                children: [u.jsx("span", {
-                                                    className: "font-bold",
-                                                    children: __top.issueType
-                                                }), " accounts for ", u.jsx("span", {
-                                                    className: "font-mono font-bold text-red-600",
-                                                    children: Qt(__top.financialExposure)
-                                                }), " (", u.jsx("span", {
-                                                    className: "font-mono font-extrabold text-[#8A6A1F]",
-                                                    children: [__topShare.toFixed(1), "%"]
-                                                }), " of total exposure) across ", __top.totalIncidents, " incident(s)."]
-                                            }), __top.trendDirection === "Increasing" && u.jsxs("p", {
-                                                className: "text-[10.5px] text-red-600 font-bold mt-1.5",
-                                                children: ["⚠ Trending up ", (__top.trendPercentage || 0).toFixed(1), "% vs previous period"]
-                                            })]
-                                        }), u.jsxs("div", {
-                                            className: "space-y-2 text-[11px] text-[#6C655B]",
-                                            children: [u.jsxs("div", {
-                                                className: "flex items-start gap-2",
-                                                children: [u.jsx("span", {
-                                                    className: "text-emerald-600 font-bold",
-                                                    children: "✓"
-                                                }), u.jsxs("span", {
-                                                    children: [de.length, " active issue categories tracked this period."]
-                                                })]
-                                            }), u.jsxs("div", {
-                                                className: "flex items-start gap-2",
-                                                children: [u.jsx("span", {
-                                                    className: `font-bold ${__worseningCount>0?"text-red-600":"text-emerald-600"}`,
-                                                    children: __worseningCount > 0 ? "⚠" : "✓"
-                                                }), u.jsxs("span", {
-                                                    children: [__worseningCount, " categor", __worseningCount === 1 ? "y" : "ies", " trending upward."]
-                                                })]
-                                            })]
-                                        })]
-                                    }), u.jsxs("div", {
-                                        className: "pt-3 mt-3 border-t border-[#EAE3D5] flex items-center justify-between text-[10.5px] text-[#6C655B]",
-                                        children: [u.jsx("span", {
-                                            children: "Total Exposure (all categories)"
-                                        }), u.jsx("span", {
-                                            className: "font-mono font-bold text-red-600",
-                                            children: Qt(__totalExp)
-                                        })]
-                                    })]
-                                })]
+                    children: [u.jsxs("div", {
+                        className: "flex items-center justify-between mb-3 pb-2 border-b border-[#FAF2E5]",
+                        children: [u.jsxs("div", {
+                            children: [u.jsx("h3", {
+                                className: "font-serif font-bold text-sm text-gray-900 tracking-tight",
+                                children: "Issue Type Impact & Trends"
+                            }), u.jsx("p", {
+                                className: "text-[11px] text-[#6C655B]",
+                                children: "Breakdown by classification category"
                             })]
-                        })
-                    })()]
+                        }), u.jsxs("div", {
+                            className: "flex items-center gap-1 bg-[#FAF7F2] p-1 rounded-lg border border-[#EAE3D5] text-[10px]",
+                            children: [u.jsx("button", {
+                                onClick: () => E("exposure"),
+                                className: `px-2 py-0.5 rounded font-semibold cursor-pointer ${p==="exposure"?"bg-[#C5A059] text-black font-bold":"text-[#6C655B]"}`,
+                                children: "Loss"
+                            }), u.jsx("button", {
+                                onClick: () => E("count"),
+                                className: `px-2 py-0.5 rounded font-semibold cursor-pointer ${p==="count"?"bg-[#C5A059] text-black font-bold":"text-[#6C655B]"}`,
+                                children: "Count"
+                            })]
+                        })]
+                    }), u.jsxs("div", {
+                        className: "pt-2",
+                        children: [u.jsx("div", {
+                            className: "flex items-end gap-3 overflow-x-auto pb-2",
+                            children: [...de].sort((a, b) => (p === "exposure" ? b.financialExposure - a.financialExposure : b.totalIncidents - a.totalIncidents)).map((he, idx, arr) => {
+                                const PALETTE = [["#8B5CF6", "#6D28D9"], ["#EC4899", "#BE185D"], ["#3B82F6", "#1D4ED8"], ["#06B6D4", "#0E7490"], ["#10B981", "#047857"], ["#F59E0B", "#B45309"], ["#EF4444", "#B91C1C"], ["#6366F1", "#4338CA"]],
+                                    maxVal = Math.max(...arr.map(rt => p === "exposure" ? rt.financialExposure : rt.totalIncidents), 1),
+                                    val = p === "exposure" ? he.financialExposure : he.totalIncidents,
+                                    barHeightPx = Math.max(18, Math.round(val / maxVal * 130)),
+                                    [c1, c2] = PALETTE[idx % PALETTE.length],
+                                    label = p === "exposure" ? (he.financialExposure >= 1000 ? "\u20b1" + (he.financialExposure / 1000).toFixed(1) + "K" : Qt(he.financialExposure)) : String(he.totalIncidents);
+                                return u.jsxs("div", {
+                                    className: "flex flex-col items-center shrink-0",
+                                    style: { width: "92px" },
+                                    children: [u.jsx("div", {
+                                        className: "h-7 flex items-end justify-center w-full mb-1 px-0.5",
+                                        children: u.jsx("span", {
+                                            className: "text-[9.5px] font-mono font-extrabold text-gray-800 text-center leading-tight w-full overflow-hidden text-ellipsis whitespace-nowrap",
+                                            title: p === "exposure" ? Qt(he.financialExposure) : String(he.totalIncidents),
+                                            children: label
+                                        })
+                                    }), u.jsx("div", {
+                                        className: "w-full flex items-end justify-center",
+                                        style: { height: "132px" },
+                                        children: u.jsx("div", {
+                                            className: "w-full max-w-[36px] rounded-t-md shadow-sm transition-all duration-300",
+                                            style: { height: `${barHeightPx}px`, background: `linear-gradient(180deg, ${c1} 0%, ${c2} 100%)` }
+                                        })
+                                    }), u.jsx("div", {
+                                        className: "w-full mt-2 px-1",
+                                        style: { minHeight: "44px" },
+                                        children: u.jsx("span", {
+                                            className: "text-[9.5px] font-bold text-gray-700 text-center block leading-tight break-words",
+                                            title: he.issueType,
+                                            children: he.issueType
+                                        })
+                                    })]
+                                }, he.issueType)
+                            })
+                        }), u.jsx("p", {
+                            className: "text-[10px] text-[#6C655B] text-center mt-3 italic",
+                            children: p === "exposure" ? "Ranked by financial exposure (\u20b1)" : "Ranked by incident count"
+                        })]
+                    })]
                 }), u.jsxs("div", {
                     id: "overview-problem-items-card",
                     className: "bg-white border border-[#EAE3D5] rounded-2xl p-5 shadow-xs flex flex-col",
