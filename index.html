@@ -31210,55 +31210,86 @@ const g8 = ({
                                 }), dailySummary.totalOcc]
                             })]
                         })]
-                    }), u.jsx("div", {
-                        className: "flex items-end gap-1.5 overflow-x-auto pb-2",
-                        children: dailyIssueData.map(dd => {
-                            const maxVal = Math.max(...dailyIssueData.map(x => x.amount), 1),
-                                barHeightPx = dd.amount <= 0 ? 0 : Math.max(1, Math.round(dd.amount / maxVal * 120));
-                            return u.jsxs("div", {
-                                className: "relative flex flex-col items-center shrink-0 cursor-pointer group",
-                                style: { width: "24px" },
-                                onMouseEnter: () => setHoveredDay(dd.date),
-                                onMouseLeave: () => setHoveredDay(null),
-                                onClick: () => dd.count > 0 && setDrilldownDay(dd.date),
-                                children: [hoveredDay === dd.date && u.jsxs("div", {
-                                    className: "absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-[#1B1918] text-white rounded-lg shadow-lg p-3 z-50 whitespace-nowrap text-left",
-                                    children: [u.jsx("div", {
-                                        className: "text-[10px] font-bold text-gray-300 border-b border-gray-700 pb-1 mb-1.5",
-                                        children: new Date(dd.date + "T00:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
-                                    }), u.jsx("div", {
-                                        className: "text-[9.5px] text-gray-400 uppercase tracking-wide",
-                                        children: "Financial Impact"
-                                    }), u.jsx("div", {
-                                        className: "text-base font-mono font-extrabold text-red-400 mb-1",
-                                        children: Qt(dd.amount)
-                                    }), u.jsxs("div", {
-                                        className: "text-[10.5px] text-gray-300",
-                                        children: ["Occurrences: ", u.jsx("span", {
-                                            className: "font-bold text-white",
-                                            children: dd.count
-                                        })]
-                                    }), u.jsxs("div", {
-                                        className: "text-[10.5px] text-gray-300",
-                                        children: ["Issue Type: ", u.jsx("span", {
-                                            className: "font-bold text-white",
-                                            children: selectedIssueType
-                                        })]
-                                    })]
+                    }), (() => {
+                        const rawMax = Math.max(...dailyIssueData.map(x => x.amount), 0);
+                        const niceMax = (() => {
+                            if (rawMax <= 0) return 100;
+                            const exp = Math.floor(Math.log10(rawMax)), base = Math.pow(10, exp), frac = rawMax / base;
+                            const niceFrac = frac <= 1 ? 1 : frac <= 2 ? 2 : frac <= 5 ? 5 : 10;
+                            return niceFrac * base;
+                        })();
+                        const CHART_H = 140;
+                        const ticks = [0, niceMax * 0.25, niceMax * 0.5, niceMax * 0.75, niceMax];
+                        return u.jsx("div", {
+                            className: "flex gap-2",
+                            children: [u.jsx("div", {
+                                className: "flex flex-col justify-between text-right shrink-0",
+                                style: { height: `${CHART_H}px`, width: "52px" },
+                                children: [...ticks].reverse().map(t => u.jsx("span", {
+                                    className: "text-[9px] font-mono text-[#6C655B] leading-none",
+                                    children: "\u20b1" + Math.round(t).toLocaleString()
+                                }, t))
+                            }), u.jsxs("div", {
+                                className: "relative flex-1 overflow-x-auto pb-2",
+                                children: [u.jsx("div", {
+                                    className: "absolute left-0 right-0 top-0 pointer-events-none",
+                                    style: { height: `${CHART_H}px` },
+                                    children: ticks.map(t => u.jsx("div", {
+                                        className: "absolute left-0 right-0 border-t border-[#EAE3D5]",
+                                        style: { bottom: `${t / niceMax * CHART_H}px` }
+                                    }, t))
                                 }), u.jsx("div", {
-                                    className: "w-full flex items-end justify-center",
-                                    style: { height: "120px" },
-                                    children: u.jsx("div", {
-                                        className: `w-full max-w-[16px] rounded-t transition-all duration-200 ${dd.count>0?"bg-gradient-to-t from-[#8B2E2E] to-[#C5544F] group-hover:from-[#6D1F1F] group-hover:to-[#A83E3A]":""}`,
-                                        style: { height: `${barHeightPx}px` }
+                                    className: "flex items-end gap-1.5 relative",
+                                    style: { height: `${CHART_H}px` },
+                                    children: dailyIssueData.map(dd => {
+                                        const barHeightPx = dd.amount <= 0 ? 0 : Math.max(1, Math.round(dd.amount / niceMax * CHART_H));
+                                        return u.jsxs("div", {
+                                            className: "relative flex flex-col items-center shrink-0 cursor-pointer group",
+                                            style: { width: "24px" },
+                                            onMouseEnter: () => setHoveredDay(dd.date),
+                                            onMouseLeave: () => setHoveredDay(null),
+                                            onClick: () => dd.count > 0 && setDrilldownDay(dd.date),
+                                            children: [hoveredDay === dd.date && u.jsxs("div", {
+                                                className: "absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-[#1B1918] text-white rounded-lg shadow-lg p-3 z-50 whitespace-nowrap text-left",
+                                                children: [u.jsx("div", {
+                                                    className: "text-[10px] font-bold text-gray-300 border-b border-gray-700 pb-1 mb-1.5",
+                                                    children: new Date(dd.date + "T00:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+                                                }), u.jsx("div", {
+                                                    className: "text-[9.5px] text-gray-400 uppercase tracking-wide",
+                                                    children: "Financial Impact"
+                                                }), u.jsx("div", {
+                                                    className: "text-base font-mono font-extrabold text-blue-400 mb-1",
+                                                    children: Qt(dd.amount)
+                                                }), u.jsxs("div", {
+                                                    className: "text-[10.5px] text-gray-300",
+                                                    children: ["Occurrences: ", u.jsx("span", {
+                                                        className: "font-bold text-white",
+                                                        children: dd.count
+                                                    })]
+                                                }), u.jsxs("div", {
+                                                    className: "text-[10.5px] text-gray-300",
+                                                    children: ["Issue Type: ", u.jsx("span", {
+                                                        className: "font-bold text-white",
+                                                        children: selectedIssueType
+                                                    })]
+                                                })]
+                                            }), u.jsx("div", {
+                                                className: "w-full flex items-end justify-center",
+                                                style: { height: `${CHART_H}px` },
+                                                children: u.jsx("div", {
+                                                    className: `w-full max-w-[16px] rounded-t transition-all duration-200 ${dd.count>0?"bg-gradient-to-t from-[#1D4ED8] to-[#60A5FA] group-hover:from-[#1E3A8A] group-hover:to-[#3B82F6]":""}`,
+                                                    style: { height: `${barHeightPx}px` }
+                                                })
+                                            }), u.jsx("span", {
+                                                className: "text-[8px] font-bold text-[#6C655B] mt-1",
+                                                children: dd.day
+                                            })]
+                                        }, dd.date)
                                     })
-                                }), u.jsx("span", {
-                                    className: "text-[8px] font-bold text-[#6C655B] mt-1",
-                                    children: dd.day
                                 })]
-                            }, dd.date)
+                            })]
                         })
-                    }), u.jsx("p", {
+                    })(), u.jsx("p", {
                         className: "text-[10px] text-[#6C655B] text-center italic",
                         children: "Hover a bar for details \u2022 Click a bar to view that day's records"
                     }), drilldownDay && u.jsx("div", {
