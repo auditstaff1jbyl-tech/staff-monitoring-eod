@@ -31277,8 +31277,11 @@ const g8 = ({
                                                 className: "w-full flex items-end justify-center",
                                                 style: { height: `${CHART_H}px` },
                                                 children: u.jsx("div", {
-                                                    className: `w-full max-w-[16px] rounded-t transition-all duration-200 ${dd.count>0?"bg-gradient-to-t from-[#1D4ED8] to-[#60A5FA] group-hover:from-[#1E3A8A] group-hover:to-[#3B82F6]":""}`,
-                                                    style: { height: `${barHeightPx}px` }
+                                                    className: "w-full max-w-[16px] rounded-t transition-all duration-200",
+                                                    style: {
+                                                        height: `${barHeightPx}px`,
+                                                        background: dd.count > 0 ? "linear-gradient(180deg, #60A5FA 0%, #1D4ED8 100%)" : "transparent"
+                                                    }
                                                 })
                                             }), u.jsx("span", {
                                                 className: "text-[8px] font-bold text-[#6C655B] mt-1",
