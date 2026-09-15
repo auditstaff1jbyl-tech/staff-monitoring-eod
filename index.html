@@ -11081,11 +11081,15 @@ function NQ() {
             key: backupKey,
             value: JSON.stringify(A)
         })
-    }).then(r => {
+    }).then(async r => {
         if (r.ok) alert(`Backup saved to cloud database.\n\n${A.eodRecords.length} EOD records, ${A.branches.length} branches, ${A.staff.length} staff.\nSaved as: ${backupKey}`);
-        else alert("Backup failed to save. Please check your internet connection and try again.")
-    }).catch(() => {
-        alert("Backup failed \u2014 no internet connection. Please try again.")
+        else {
+            let detail = "";
+            try { detail = await r.text(); } catch (e) {}
+            alert(`Backup failed to save.\n\nServer responded with status ${r.status}.\n${detail ? "Details: " + detail.slice(0, 300) : ""}`)
+        }
+    }).catch(e => {
+        alert("Backup failed \u2014 could not reach the server.\n\n" + (e && e.message ? e.message : "Unknown network error") + "\n\nPlease check your internet connection and try again.")
     })
 }
 function exportLocalBackup() {
