@@ -11071,22 +11071,47 @@ function NQ() {
             disciplinaryActions: g0()
         };
     const backupKey = "manual_backup_" + new Date().toISOString().replace(/[:.]/g, "-");
-    fetch("/api/data", {
+    const CHUNK_SIZE = 40;
+    const recordChunks = [];
+    for (let i = 0; i < A.eodRecords.length; i += CHUNK_SIZE) {
+        recordChunks.push(A.eodRecords.slice(i, i + CHUNK_SIZE));
+    }
+    const meta = {
+        version: A.version,
+        exportedAt: A.exportedAt,
+        branches: A.branches,
+        staff: A.staff,
+        items: A.items,
+        issueTypes: A.issueTypes,
+        riskSettings: A.riskSettings,
+        riskThresholds: A.riskThresholds,
+        actionItems: A.actionItems,
+        incidentReports: A.incidentReports,
+        disciplinaryActions: A.disciplinaryActions,
+        eodRecordCount: A.eodRecords.length,
+        chunkCount: recordChunks.length
+    };
+    const headers = {
+        "x-passcode": window.getStoredPasscode ? window.getStoredPasscode() : "",
+        "Content-Type": "application/json"
+    };
+    const postChunk = (key, value) => fetch("/api/data", {
         method: "POST",
-        headers: {
-            "x-passcode": window.getStoredPasscode ? window.getStoredPasscode() : "",
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            key: backupKey,
-            value: JSON.stringify(A)
-        })
-    }).then(async r => {
-        if (r.ok) alert(`Backup saved to cloud database.\n\n${A.eodRecords.length} EOD records, ${A.branches.length} branches, ${A.staff.length} staff.\nSaved as: ${backupKey}`);
-        else {
+        headers,
+        body: JSON.stringify({ key, value: JSON.stringify(value) })
+    });
+    const tasks = [postChunk(backupKey + "::meta", meta)];
+    recordChunks.forEach((chunk, idx) => {
+        tasks.push(postChunk(`${backupKey}::records_${idx}`, chunk));
+    });
+    Promise.all(tasks).then(async results => {
+        const failed = results.filter(r => !r.ok);
+        if (failed.length === 0) {
+            alert(`Backup saved to cloud database.\n\n${A.eodRecords.length} EOD records, ${A.branches.length} branches, ${A.staff.length} staff.\nSaved in ${tasks.length} piece(s) as: ${backupKey}`);
+        } else {
             let detail = "";
-            try { detail = await r.text(); } catch (e) {}
-            alert(`Backup failed to save.\n\nServer responded with status ${r.status}.\n${detail ? "Details: " + detail.slice(0, 300) : ""}`)
+            try { detail = await failed[0].text(); } catch (e) {}
+            alert(`Backup failed to save.\n\n${failed.length} of ${tasks.length} piece(s) failed.\nServer responded with status ${failed[0].status}.\n${detail ? "Details: " + detail.slice(0, 300) : ""}`)
         }
     }).catch(e => {
         alert("Backup failed \u2014 could not reach the server.\n\n" + (e && e.message ? e.message : "Unknown network error") + "\n\nPlease check your internet connection and try again.")
