@@ -31657,6 +31657,14 @@ const g8 = ({
                                     className: "text-sm text-gray-800",
                                     children: __focusedRecord.rootCause
                                 })]
+                            }), __focusedRecord.remarks && u.jsxs("div", {
+                                children: [u.jsx("span", {
+                                    className: "text-[11px] font-bold text-[#6C655B] uppercase block mb-0.5",
+                                    children: "Shift Remarks & Audit Observations"
+                                }), u.jsx("p", {
+                                    className: "text-sm text-gray-800 bg-[#FAF7F2] border border-[#EAE3D5] rounded-lg p-2.5 leading-relaxed",
+                                    children: __focusedRecord.remarks
+                                })]
                             })]
                         }), u.jsxs("div", {
                             className: "space-y-3",
@@ -31678,6 +31686,17 @@ const g8 = ({
                                     children: sev.advice
                                 })]
                             })]
+                        })]
+                    }), __focusedRecord.evidencePhoto && u.jsxs("div", {
+                        className: "border-t border-[#FAF2E5] pt-3",
+                        children: [u.jsx("span", {
+                            className: "text-[11px] font-bold text-[#6C655B] uppercase block mb-2",
+                            children: "Attached Photo Evidence"
+                        }), u.jsx("img", {
+                            src: __focusedRecord.evidencePhoto,
+                            alt: "Audit Evidence",
+                            className: "max-h-48 rounded-xl border border-[#EAE3D5] object-contain cursor-zoom-in",
+                            onClick: () => window.open(__focusedRecord.evidencePhoto, "_blank")
                         })]
                     }), u.jsxs("div", {
                         className: "border-t border-[#FAF2E5] pt-3",
