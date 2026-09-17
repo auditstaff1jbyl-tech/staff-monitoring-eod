@@ -11142,16 +11142,37 @@ function exportLocalBackup() {
 }
 const SQ = NQ;
 
+function __mergeArrayById(current, incoming) {
+    if (!Array.isArray(incoming)) return current || [];
+    const list = Array.isArray(current) ? current : [];
+    const existingIds = new Set(list.map(x => x && x.id).filter(id => id != null));
+    const toAdd = incoming.filter(x => x && x.id != null && !existingIds.has(x.id));
+    return list.concat(toAdd);
+}
 function FQ(A) {
     try {
         const e = JSON.parse(A);
-        return !e || typeof e != "object" ? {
+        if (!e || typeof e != "object") return {
             success: !1,
             error: "Invalid backup file format"
-        } : (Array.isArray(e.branches) && Ux(e.branches), Array.isArray(e.staff) && Qx(e.staff), Array.isArray(e.items) && Tx(e.items), Array.isArray(e.issueTypes) && Lx(e.issueTypes), e.riskSettings && typeof e.riskSettings == "object" && pN(e.riskSettings), e.riskThresholds && typeof e.riskThresholds == "object" && Ix(e.riskThresholds), Array.isArray(e.eodRecords) && hd(e.eodRecords), Array.isArray(e.actionItems) && gd(e.actionItems), Array.isArray(e.incidentReports) && _x(e.incidentReports), Array.isArray(e.disciplinaryActions) && pd(e.disciplinaryActions), {
+        };
+        Array.isArray(e.branches) && Ux(__mergeArrayById(u0(), e.branches));
+        Array.isArray(e.staff) && Qx(__mergeArrayById(dN(), e.staff));
+        Array.isArray(e.items) && Tx(__mergeArrayById(hN(), e.items));
+        Array.isArray(e.issueTypes) && Lx(__mergeArrayById(f0(), e.issueTypes));
+        let recordsAdded = 0;
+        if (Array.isArray(e.eodRecords)) {
+            const beforeIds = new Set(d0().map(x => x && x.id));
+            recordsAdded = e.eodRecords.filter(x => x && x.id != null && !beforeIds.has(x.id)).length;
+            hd(__mergeArrayById(d0(), e.eodRecords))
+        }
+        Array.isArray(e.actionItems) && gd(__mergeArrayById(h0(), e.actionItems));
+        Array.isArray(e.incidentReports) && _x(__mergeArrayById(BQ(), e.incidentReports));
+        Array.isArray(e.disciplinaryActions) && pd(__mergeArrayById(g0(), e.disciplinaryActions));
+        return {
             success: !0,
-            message: "Backup successfully restored and integrated!"
-        })
+            message: `Backup merged successfully. ${recordsAdded} new EOD record(s) added. Your existing data was kept \u2014 nothing was deleted or overwritten.`
+        }
     } catch (e) {
         return {
             success: !1,
