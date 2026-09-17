@@ -13975,42 +13975,51 @@ const gL = [
                         children: [u.jsx("label", {
                             className: "text-[10.5px] font-bold text-[#6C655B] uppercase tracking-wider block",
                             children: "Branch"
-                        }), u.jsxs("select", {
+                        }), u.jsx("input", {
                             id: "filter-branch",
-                            value: v.branch,
-                            onChange: he => y(Re => ({
-                                ...Re,
-                                branch: he.target.value
-                            })),
-                            className: "w-full px-2.5 py-1.5 border border-[#EAE3D5] rounded-lg bg-[#FAF7F2]/50 text-gray-900 font-semibold focus:outline-none focus:ring-1 focus:ring-[#C5A059] cursor-pointer",
-                            children: [u.jsxs("option", {
-                                value: "All",
-                                children: ["All Branches (", t.length, ")"]
-                            }), (t || []).map(he => u.jsx("option", {
-                                value: he.name,
-                                children: he.name
-                            }, he.id))]
+                            type: "text",
+                            list: "filter-branch-options",
+                            value: v.branch === "All" ? "" : v.branch,
+                            onChange: he => {
+                                const val = he.target.value;
+                                y(Re => ({
+                                    ...Re,
+                                    branch: val.trim() === "" ? "All" : val
+                                }))
+                            },
+                            placeholder: `All Branches (${t.length})`,
+                            className: "w-full px-2.5 py-1.5 border border-[#EAE3D5] rounded-lg bg-[#FAF7F2]/50 text-gray-900 font-semibold focus:outline-none focus:ring-1 focus:ring-[#C5A059] placeholder:text-gray-500 placeholder:font-medium"
+                        }), u.jsx("datalist", {
+                            id: "filter-branch-options",
+                            children: (t || []).map(he => u.jsx("option", {
+                                value: he.name
+                            }, he.id))
                         })]
                     }), u.jsxs("div", {
                         className: "space-y-1",
                         children: [u.jsx("label", {
                             className: "text-[10.5px] font-bold text-[#6C655B] uppercase tracking-wider block",
                             children: "Staff Member"
-                        }), u.jsxs("select", {
+                        }), u.jsx("input", {
                             id: "filter-staff",
-                            value: v.staff,
-                            onChange: he => y(Re => ({
-                                ...Re,
-                                staff: he.target.value
-                            })),
-                            className: "w-full px-2.5 py-1.5 border border-[#EAE3D5] rounded-lg bg-[#FAF7F2]/50 text-gray-900 font-semibold focus:outline-none focus:ring-1 focus:ring-[#C5A059] cursor-pointer",
-                            children: [u.jsxs("option", {
-                                value: "All",
-                                children: ["All Staff (", e.length, ")"]
-                            }), (e || []).map(he => u.jsxs("option", {
+                            type: "text",
+                            list: "filter-staff-options",
+                            value: v.staff === "All" ? "" : v.staff,
+                            onChange: he => {
+                                const val = he.target.value;
+                                y(Re => ({
+                                    ...Re,
+                                    staff: val.trim() === "" ? "All" : val
+                                }))
+                            },
+                            placeholder: `All Staff (${e.length})`,
+                            className: "w-full px-2.5 py-1.5 border border-[#EAE3D5] rounded-lg bg-[#FAF7F2]/50 text-gray-900 font-semibold focus:outline-none focus:ring-1 focus:ring-[#C5A059] placeholder:text-gray-500 placeholder:font-medium"
+                        }), u.jsx("datalist", {
+                            id: "filter-staff-options",
+                            children: (e || []).map(he => u.jsx("option", {
                                 value: he.name,
-                                children: [he.name, " (", he.branch, ")"]
-                            }, he.id))]
+                                children: `${he.name} (${he.branch})`
+                            }, he.id))
                         })]
                     }), u.jsxs("div", {
                         className: "space-y-1",
