@@ -25,9 +25,10 @@
       var UNLOCK_KEY = "__gate_unlocked_until";
       var DISPLAY_KEY = "_uiprefs_theme";
       var API_PASSCODE_KEY = "__api_passcode";
+      var PENDING_KEY = "__pending_sync_keys";
       var REMEMBER_DAYS = 30;
 
-      function isSystemKey(k) { return k === UNLOCK_KEY || k === DISPLAY_KEY || k === API_PASSCODE_KEY; }
+      function isSystemKey(k) { return k === UNLOCK_KEY || k === DISPLAY_KEY || k === API_PASSCODE_KEY || k === PENDING_KEY; }
 
       function getStoredPasscode() {
         return sessionStorage.getItem(API_PASSCODE_KEY) || "";
@@ -53,6 +54,8 @@
 
       function launchApp() {
         buildSyncBadge();
+        buildPendingBanner();
+        updatePendingBanner();
         buildPresenceWidget();
         installSupabaseSync();
         hydrateFromSupabase().finally(function () {
@@ -163,6 +166,53 @@
         }
       }
 
+      // ---- Persistent pending-sync tracking (tested in isolation before integration) ----
+      // Guarantees an unconfirmed change is recorded in real localStorage the instant it
+      // happens, so it survives a tab close/crash and is never silently discarded.
+      function makePendingTracker(storage, pendingKey, notifyChange) {
+        function load() {
+          try {
+            var raw = storage.getItem(pendingKey);
+            var arr = raw ? JSON.parse(raw) : [];
+            return Array.isArray(arr) ? arr : [];
+          } catch (e) { return []; }
+        }
+        function save(arr) {
+          try { storage.setItem(pendingKey, JSON.stringify(arr)); } catch (e) {}
+        }
+        return {
+          mark: function (key) {
+            var arr = load();
+            if (arr.indexOf(key) === -1) { arr.push(key); save(arr); }
+            if (notifyChange) notifyChange(load());
+          },
+          clear: function (key) {
+            var arr = load();
+            var idx = arr.indexOf(key);
+            if (idx !== -1) { arr.splice(idx, 1); save(arr); }
+            if (notifyChange) notifyChange(load());
+          },
+          isPending: function (key) { return load().indexOf(key) !== -1; },
+          list: function () { return load(); }
+        };
+      }
+
+      var pendingBannerEl = null;
+      function buildPendingBanner() {
+        pendingBannerEl = document.createElement("div");
+        pendingBannerEl.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:100000;background:#B53D43;color:#fff;font-family:-apple-system,Segoe UI,Roboto,sans-serif;font-weight:700;font-size:13px;padding:10px 16px;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,.3);display:none;";
+        pendingBannerEl.textContent = "\u26A0 Not saved to cloud yet \u2014 please check your internet connection. Do not close this tab.";
+        document.body.appendChild(pendingBannerEl);
+      }
+      function updatePendingBanner(currentList) {
+        if (!pendingBannerEl) return;
+        var list = currentList || pendingTracker.list();
+        pendingBannerEl.style.display = list.length > 0 ? "block" : "none";
+      }
+      var pendingTracker = makePendingTracker(window.localStorage, PENDING_KEY, function (list) {
+        updatePendingBanner(list);
+      });
+
       var lastKnownSnapshot = {}; // key -> Map(id -> serialized JSON) for decomposable arrays
 
       function tryDecompose(rawValue) {
@@ -199,21 +249,23 @@
           pending = {};
           if (keys.length === 0) return;
           setSyncStatus("saving");
-          var tasks = [];
+          var keyTaskMap = {};
 
           keys.forEach(function (key) {
             if (isSystemKey(key)) return;
             var value = window.localStorage.getItem(key);
+            var tasksForKey = [];
 
             if (value === null) {
               // whole key removed
               if (lastKnownSnapshot[key]) {
                 lastKnownSnapshot[key].forEach(function (_v, id) {
-                  tasks.push(fetch("/api/data?key=" + encodeURIComponent(key + "::" + id), { method: "DELETE", headers: headers() }));
+                  tasksForKey.push(fetch("/api/data?key=" + encodeURIComponent(key + "::" + id), { method: "DELETE", headers: headers() }));
                 });
                 delete lastKnownSnapshot[key];
               }
-              tasks.push(fetch("/api/data?key=" + encodeURIComponent(key), { method: "DELETE", headers: headers() }));
+              tasksForKey.push(fetch("/api/data?key=" + encodeURIComponent(key), { method: "DELETE", headers: headers() }));
+              keyTaskMap[key] = tasksForKey;
               return;
             }
 
@@ -222,7 +274,7 @@
               var oldMap = lastKnownSnapshot[key] || new Map();
               newMap.forEach(function (json, id) {
                 if (oldMap.get(id) !== json) {
-                  tasks.push(fetch("/api/data", {
+                  tasksForKey.push(fetch("/api/data", {
                     method: "POST",
                     headers: headers({ "Content-Type": "application/json" }),
                     body: JSON.stringify({ key: key + "::" + id, value: json })
@@ -231,37 +283,54 @@
               });
               oldMap.forEach(function (_json, id) {
                 if (!newMap.has(id)) {
-                  tasks.push(fetch("/api/data?key=" + encodeURIComponent(key + "::" + id), { method: "DELETE", headers: headers() }));
+                  tasksForKey.push(fetch("/api/data?key=" + encodeURIComponent(key + "::" + id), { method: "DELETE", headers: headers() }));
                 }
               });
               lastKnownSnapshot[key] = newMap;
             } else {
               // not a decomposable array (plain object/string) -> sync as a single whole value
-              tasks.push(fetch("/api/data", {
+              tasksForKey.push(fetch("/api/data", {
                 method: "POST",
                 headers: headers({ "Content-Type": "application/json" }),
                 body: JSON.stringify({ key: key, value: value })
               }));
             }
+            keyTaskMap[key] = tasksForKey;
           });
 
-          if (tasks.length === 0) { setSyncStatus("saved"); return; }
-          Promise.all(tasks).then(function (results) {
-            var failed = results.some(function (r) { return r && !r.ok; });
-            setSyncStatus(failed ? "error" : "saved");
-          }).catch(function () {
-            setSyncStatus("error");
+          var allKeys = Object.keys(keyTaskMap);
+          if (allKeys.length === 0) { setSyncStatus("saved"); return; }
+
+          var anyFailed = false;
+          var settled = 0;
+          allKeys.forEach(function (key) {
+            Promise.all(keyTaskMap[key]).then(function (results) {
+              var failed = results.some(function (r) { return r && !r.ok; });
+              if (failed) {
+                anyFailed = true;
+              } else {
+                pendingTracker.clear(key); // Fix 1/3: only clear once every sub-task for this key is confirmed saved
+              }
+              settled++;
+              if (settled === allKeys.length) setSyncStatus(anyFailed ? "error" : "saved");
+            }, function () {
+              anyFailed = true;
+              settled++;
+              if (settled === allKeys.length) setSyncStatus(anyFailed ? "error" : "saved");
+            });
           });
         }
         window.localStorage.setItem = function (key, value) {
           origSetItem(key, value);
           if (isSystemKey(key)) return;
+          pendingTracker.mark(key); // Fix 1: persist "unconfirmed" marker to real storage immediately, before the debounce
           pending[key] = true;
           scheduleFlush();
         };
         window.localStorage.removeItem = function (key) {
           origRemoveItem(key);
           if (isSystemKey(key)) return;
+          pendingTracker.mark(key);
           pending[key] = true;
           scheduleFlush();
         };
@@ -272,6 +341,14 @@
             e.returnValue = "";
           }
         });
+
+        // Fix 1 (crash recovery): if a previous session left keys marked pending
+        // (tab closed/crashed before cloud confirmed), retry pushing them now.
+        var leftoverPending = pendingTracker.list();
+        if (leftoverPending.length > 0) {
+          leftoverPending.forEach(function (key) { pending[key] = true; });
+          scheduleFlush();
+        }
       }
 
       function hydrateFromSupabase() {
@@ -298,18 +375,26 @@
             // Apply decomposed groups (these take priority over any legacy whole-blob row for the same key)
             Object.keys(groups).forEach(function (baseKey) {
               var items = Array.from(groups[baseKey].values());
-              origSetItem(baseKey, JSON.stringify(items));
               var snapMap = new Map();
               groups[baseKey].forEach(function (item, id) { snapMap.set(id, JSON.stringify(item)); });
+              // Fix 2: lastKnownSnapshot always reflects the cloud's current state (needed for
+              // correct future diffing), but the actual local copy is only overwritten if there
+              // is no unconfirmed pending change for this key — otherwise the staff's not-yet-synced
+              // entry would be silently erased the moment the app reloads.
               lastKnownSnapshot[baseKey] = snapMap;
+              if (!pendingTracker.isPending(baseKey)) {
+                origSetItem(baseKey, JSON.stringify(items));
+              }
             });
 
             // Apply whole-value rows for keys that have no decomposed group yet (config objects, or not-yet-migrated arrays)
             Object.keys(wholeValues).forEach(function (baseKey) {
               if (groups[baseKey]) return; // already handled via decomposed group
-              origSetItem(baseKey, wholeValues[baseKey]);
               var maybeMap = tryDecompose(wholeValues[baseKey]);
               if (maybeMap) lastKnownSnapshot[baseKey] = maybeMap; // will migrate to per-record rows on next save
+              if (!pendingTracker.isPending(baseKey)) {
+                origSetItem(baseKey, wholeValues[baseKey]);
+              }
             });
           }).catch(function () {});
       }
