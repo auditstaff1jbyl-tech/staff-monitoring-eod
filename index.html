@@ -349,6 +349,18 @@
           leftoverPending.forEach(function (key) { pending[key] = true; });
           scheduleFlush();
         }
+
+        // Keep trying until it's really in: even if the tab stays open (no reload),
+        // any entry that failed to reach the cloud is retried automatically every
+        // 12 seconds, for as long as it remains unconfirmed. This does not stop on
+        // its own — it only stops once every pending item is actually saved.
+        setInterval(function () {
+          var stillPending = pendingTracker.list();
+          if (stillPending.length === 0) return;
+          stillPending.forEach(function (key) { pending[key] = true; });
+          clearTimeout(timer);
+          flush();
+        }, 12000);
       }
 
       function hydrateFromSupabase() {
