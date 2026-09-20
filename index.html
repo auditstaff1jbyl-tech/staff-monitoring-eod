@@ -271,22 +271,32 @@
 
             var newMap = tryDecompose(value);
             if (newMap) {
-              var oldMap = lastKnownSnapshot[key] || new Map();
+              var oldMap = lastKnownSnapshot[key];
+              if (!oldMap) { oldMap = new Map(); lastKnownSnapshot[key] = oldMap; }
               newMap.forEach(function (json, id) {
                 if (oldMap.get(id) !== json) {
                   tasksForKey.push(fetch("/api/data", {
                     method: "POST",
                     headers: headers({ "Content-Type": "application/json" }),
                     body: JSON.stringify({ key: key + "::" + id, value: json })
+                  }).then(function (res) {
+                    // CRITICAL: only remember this record as "confirmed saved" once the
+                    // server actually accepted it. If this line ran unconditionally before
+                    // the request settled, a failed push would be silently forgotten and
+                    // never retried \u2014 this was the exact cause of the 38-vs-30 data-loss bug.
+                    if (res.ok) oldMap.set(id, json);
+                    return res;
                   }));
                 }
               });
-              oldMap.forEach(function (_json, id) {
+              Array.from(oldMap.keys()).forEach(function (id) {
                 if (!newMap.has(id)) {
-                  tasksForKey.push(fetch("/api/data?key=" + encodeURIComponent(key + "::" + id), { method: "DELETE", headers: headers() }));
+                  tasksForKey.push(fetch("/api/data?key=" + encodeURIComponent(key + "::" + id), { method: "DELETE", headers: headers() }).then(function (res) {
+                    if (res.ok) oldMap.delete(id);
+                    return res;
+                  }));
                 }
               });
-              lastKnownSnapshot[key] = newMap;
             } else {
               // not a decomposable array (plain object/string) -> sync as a single whole value
               tasksForKey.push(fetch("/api/data", {
