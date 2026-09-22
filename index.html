@@ -399,13 +399,31 @@
               var items = Array.from(groups[baseKey].values());
               var snapMap = new Map();
               groups[baseKey].forEach(function (item, id) { snapMap.set(id, JSON.stringify(item)); });
-              // Fix 2: lastKnownSnapshot always reflects the cloud's current state (needed for
-              // correct future diffing), but the actual local copy is only overwritten if there
-              // is no unconfirmed pending change for this key — otherwise the staff's not-yet-synced
-              // entry would be silently erased the moment the app reloads.
+              // lastKnownSnapshot always reflects the cloud's current confirmed state (needed for
+              // correct future diffing).
               lastKnownSnapshot[baseKey] = snapMap;
               if (!pendingTracker.isPending(baseKey)) {
                 origSetItem(baseKey, JSON.stringify(items));
+              } else {
+                // CRITICAL FIX: a key with an unconfirmed pending change must NEVER simply be
+                // skipped here. If it were skipped, the local copy could remain stale/incomplete
+                // (missing records saved by someone else on another device) while lastKnownSnapshot
+                // above jumps forward to the full cloud state. The very next save would then diff
+                // the incomplete local array against the full cloud snapshot and misread every
+                // record missing locally as "the user wants this deleted" \u2014 permanently deleting
+                // real, already-confirmed cloud data. Instead, MERGE: keep every local record
+                // (including the not-yet-confirmed one) and fill in anything present in the cloud
+                // but missing locally, so nothing is ever lost in either direction.
+                var localRaw = window.localStorage.getItem(baseKey);
+                var localMap = localRaw ? tryDecompose(localRaw) : null;
+                var merged = localMap ? new Map(localMap) : new Map();
+                groups[baseKey].forEach(function (item, id) {
+                  if (!merged.has(id)) merged.set(id, JSON.stringify(item));
+                });
+                var mergedItems = Array.from(merged.values()).map(function (s) {
+                  try { return JSON.parse(s); } catch (e) { return null; }
+                }).filter(function (x) { return x !== null; });
+                origSetItem(baseKey, JSON.stringify(mergedItems));
               }
             });
 
