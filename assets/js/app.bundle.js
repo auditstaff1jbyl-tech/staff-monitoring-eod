@@ -15185,7 +15185,11 @@ const gL = [
                     alert("Image file size must be less than 15MB.");
                     return
                 }
-                compressImageFile(Ge).then(Bt => Bt && X(Bt)).catch(() => alert("This image could not be processed. Please choose a smaller image (under 2MB)."))
+                compressImageFile(Ge).then(Bt => {
+                    if (!Bt) return;
+                    X(Bt);
+                    if (window.__uploadEvidencePhoto) window.__uploadEvidencePhoto(Bt).then(u => { u && X(u) }).catch(() => {})
+                }).catch(() => alert("This image could not be processed. Please choose a smaller image (under 2MB)."))
             },
             he = () => {
                 y(null), E(Ou()), Q(""), F(""), L("Wrong EOD"), k("Y"), V("FG"), re("Staff Error"), M(""), q(""), X(""), ne([Ee(), Ee()]), we([]), Y5()

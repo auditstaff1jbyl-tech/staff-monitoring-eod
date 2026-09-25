@@ -18,6 +18,24 @@
     return sessionStorage.getItem(API_PASSCODE_KEY) || "";
   }
   window.getStoredPasscode = getStoredPasscode;
+
+  // Uploads a compressed evidence photo (base64 data URL) to Supabase Storage and
+  // returns a signed URL string, so the caller can swap it in for the base64 in
+  // React state. Never throws to the caller on failure -- callers should keep the
+  // base64 as a fallback if this rejects, so photo capture still works even if a
+  // single upload call has a problem.
+  window.__uploadEvidencePhoto = function (dataUrl) {
+    return fetch("/api/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-passcode": getStoredPasscode() },
+      body: JSON.stringify({ dataUrl: dataUrl }),
+    }).then(function (res) {
+      if (!res.ok) throw new Error("evidence photo upload failed: " + res.status);
+      return res.json();
+    }).then(function (data) {
+      return data && data.url ? data.url : null;
+    });
+  };
   // Purge any stale passcode left over from the old "remember on this device" feature.
   try { window.localStorage.removeItem(API_PASSCODE_KEY); } catch (e) {}
   try { window.localStorage.removeItem(UNLOCK_KEY); } catch (e) {}
