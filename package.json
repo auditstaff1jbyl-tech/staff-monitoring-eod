@@ -1,0 +1,13 @@
+{
+  "name": "eod-monitoring-matrix",
+  "version": "1.0.0",
+  "private": true,
+  "description": "EOD Monitoring Matrix — Executive Decision Dashboard. Operational audit, real-time variance monitoring, branch risk analysis, and action tracking.",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
