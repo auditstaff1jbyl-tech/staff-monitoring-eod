@@ -12,13 +12,12 @@
     <script>
     // Database credentials now live server-side only (Vercel env vars),
     // accessed via the secure /api/data proxy. Nothing sensitive here.
-    var PASSCODE_HASHES = [
-      "8fae968cc94c4353192d6993c65d92a43a6683de668960107c899a65191ef341",
-      "80b09a7709e3ef167a11446bd2976a4f57d3ff1961e72d4e79e0965002d0f367"
-    ];
+    // No secrets live in this file. The passcode is verified by the server (/api/data?verify=1),
+    // which also reports which passcode slot matched (0-based, in the same order as the
+    // APP_PASSCODES Vercel variable). That slot picks the matching entry below for the presence pills.
     var USER_DIRECTORY = [
-      { passcode: "eod-vtdua8", slug: "auditstaff1", name: "Audit Staff 1" },
-      { passcode: "eod-vaoz2z", slug: "auditstaff2", name: "Audit Staff 2" }
+      { slug: "auditstaff1", name: "Audit Staff 1" },
+      { slug: "auditstaff2", name: "Audit Staff 2" }
     ];
 
     (function () {
@@ -26,9 +25,13 @@
       var DISPLAY_KEY = "_uiprefs_theme";
       var API_PASSCODE_KEY = "__api_passcode";
       var PENDING_KEY = "__pending_sync_keys";
-      var REMEMBER_DAYS = 30;
+      var USER_IDX_KEY = "__user_idx";
+      var RECORDS_KEY = "eod_matrix_records_v3";
+      // The half-typed Daily Entry form is personal to one person on one device. It must never be
+      // uploaded (two auditors share the database, and it can contain a multi-MB photo).
+      var DRAFT_KEY = "eod_matrix_daily_draft_v3";
 
-      function isSystemKey(k) { return k === UNLOCK_KEY || k === DISPLAY_KEY || k === API_PASSCODE_KEY || k === PENDING_KEY; }
+      function isSystemKey(k) { return k === UNLOCK_KEY || k === DISPLAY_KEY || k === API_PASSCODE_KEY || k === PENDING_KEY || k === DRAFT_KEY; }
 
       function getStoredPasscode() {
         return sessionStorage.getItem(API_PASSCODE_KEY) || "";
@@ -38,18 +41,46 @@
       try { window.localStorage.removeItem(API_PASSCODE_KEY); } catch (e) {}
       try { window.localStorage.removeItem(UNLOCK_KEY); } catch (e) {}
 
-      function sha256(str) {
-        return crypto.subtle.digest("SHA-256", new TextEncoder().encode(str)).then(function (buf) {
-          return Array.from(new Uint8Array(buf)).map(function (b) { return b.toString(16).padStart(2, "0"); }).join("");
+      function startApp() {
+        var src = document.getElementById("app-bundle").textContent;
+        var s = document.createElement("script");
+        s.type = "module";
+        s.textContent = src;
+        document.body.appendChild(s);
+      }
+
+      // Shown when the cloud could not be reached on a device that has never stored any data.
+      // Starting the app here would display the built-in SAMPLE records and the first save would
+      // upload them into the real database, so we refuse to start and offer a retry instead.
+      function showLoadFailure() {
+        var overlay = document.createElement("div");
+        overlay.style.cssText = "position:fixed;inset:0;background:#1B1918;display:flex;align-items:center;justify-content:center;z-index:100001;font-family:-apple-system,Segoe UI,Roboto,sans-serif;padding:20px;";
+        overlay.innerHTML =
+          '<div style="background:#FAF7F2;padding:32px;border-radius:16px;width:360px;max-width:92vw;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5);">' +
+          '<div style="font-weight:800;font-size:16px;color:#2C2A29;margin-bottom:8px;">Could not load your data</div>' +
+          '<div style="font-size:13px;color:#6C655B;margin-bottom:18px;line-height:1.5;">The cloud database did not respond. To protect your records the app will not start with an empty local copy. Check your internet connection and try again.</div>' +
+          '<button id="retryLoadBtn" style="width:100%;padding:10px;background:#1B1918;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;">Retry</button></div>';
+        document.body.appendChild(overlay);
+        overlay.querySelector("#retryLoadBtn").addEventListener("click", function () {
+          overlay.remove();
+          loadThenStart();
         });
       }
 
-      function isUnlocked() {
-        var until = window.localStorage.getItem(UNLOCK_KEY);
-        return !!until && Date.now() < parseInt(until, 10);
+      function showOfflineNotice() {
+        var el = document.createElement("div");
+        el.style.cssText = "position:fixed;left:14px;bottom:16px;z-index:99999;max-width:340px;background:#FFF4DC;color:#8A6A1F;font-family:-apple-system,Segoe UI,Roboto,sans-serif;font-size:12px;font-weight:600;line-height:1.4;padding:10px 14px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,.15);";
+        el.textContent = "\u26A0 Could not reach the cloud. Showing the last data saved on this device. Reload once you are back online to get the latest records.";
+        document.body.appendChild(el);
+        setTimeout(function () { el.remove(); }, 12000);
       }
-      function isUnlockedThisTab() {
-        return sessionStorage.getItem(UNLOCK_KEY) === "1";
+
+      function loadThenStart() {
+        hydrateFromSupabase().then(function (ok) {
+          if (!ok && window.localStorage.getItem(RECORDS_KEY) === null) { showLoadFailure(); return; }
+          if (!ok) showOfflineNotice();
+          startApp();
+        });
       }
 
       function launchApp() {
@@ -58,22 +89,13 @@
         updatePendingBanner();
         buildPresenceWidget();
         installSupabaseSync();
-        hydrateFromSupabase().finally(function () {
-          var src = document.getElementById("app-bundle").textContent;
-          var s = document.createElement("script");
-          s.type = "module";
-          s.textContent = src;
-          document.body.appendChild(s);
-        });
+        loadThenStart();
       }
 
-      var currentUser = null; // {passcode, slug, name}
+      var currentUser = null; // {slug, name}
       function resolveCurrentUser() {
-        var pc = getStoredPasscode();
-        for (var i = 0; i < USER_DIRECTORY.length; i++) {
-          if (USER_DIRECTORY[i].passcode === pc) return USER_DIRECTORY[i];
-        }
-        return null;
+        var idx = parseInt(sessionStorage.getItem(USER_IDX_KEY), 10);
+        return isNaN(idx) ? null : (USER_DIRECTORY[idx] || null);
       }
 
       function buildPresenceWidget() {
@@ -214,6 +236,11 @@
       });
 
       var lastKnownSnapshot = {}; // key -> Map(id -> serialized JSON) for decomposable arrays
+      // Values the browser refused to store (quota exceeded) but that still must reach the cloud.
+      var memValues = {};
+      // Arrays that the cloud still holds as ONE legacy whole-array row. They are migrated to per-record
+      // rows on the next save (every record is pushed), and only then is the legacy row deleted.
+      var legacyRows = {};
 
       function tryDecompose(rawValue) {
         try {
@@ -244,33 +271,43 @@
           setSyncStatus("pending");
           timer = setTimeout(flush, 800);
         }
+        function currentValue(key) {
+          return Object.prototype.hasOwnProperty.call(memValues, key) ? memValues[key] : window.localStorage.getItem(key);
+        }
         function flush() {
           var keys = Object.keys(pending);
           pending = {};
           if (keys.length === 0) return;
           setSyncStatus("saving");
           var keyTaskMap = {};
+          var decomposedKeys = {};
 
           keys.forEach(function (key) {
             if (isSystemKey(key)) return;
-            var value = window.localStorage.getItem(key);
+            var value = currentValue(key);
             var tasksForKey = [];
 
             if (value === null) {
-              // whole key removed
-              if (lastKnownSnapshot[key]) {
-                lastKnownSnapshot[key].forEach(function (_v, id) {
-                  tasksForKey.push(fetch("/api/data?key=" + encodeURIComponent(key + "::" + id), { method: "DELETE", headers: headers() }));
+              // whole key removed. A record is only forgotten once the server confirmed ITS deletion,
+              // so a failed request is retried instead of leaving the record behind in the cloud.
+              var snap = lastKnownSnapshot[key];
+              if (snap) {
+                Array.from(snap.keys()).forEach(function (id) {
+                  tasksForKey.push(fetch("/api/data?key=" + encodeURIComponent(key + "::" + id), { method: "DELETE", headers: headers() }).then(function (res) {
+                    if (res.ok) snap.delete(id);
+                    return res;
+                  }));
                 });
-                delete lastKnownSnapshot[key];
               }
               tasksForKey.push(fetch("/api/data?key=" + encodeURIComponent(key), { method: "DELETE", headers: headers() }));
+              delete legacyRows[key];
               keyTaskMap[key] = tasksForKey;
               return;
             }
 
             var newMap = tryDecompose(value);
             if (newMap) {
+              decomposedKeys[key] = true;
               var oldMap = lastKnownSnapshot[key];
               if (!oldMap) { oldMap = new Map(); lastKnownSnapshot[key] = oldMap; }
               newMap.forEach(function (json, id) {
@@ -280,10 +317,8 @@
                     headers: headers({ "Content-Type": "application/json" }),
                     body: JSON.stringify({ key: key + "::" + id, value: json })
                   }).then(function (res) {
-                    // CRITICAL: only remember this record as "confirmed saved" once the
-                    // server actually accepted it. If this line ran unconditionally before
-                    // the request settled, a failed push would be silently forgotten and
-                    // never retried \u2014 this was the exact cause of the 38-vs-30 data-loss bug.
+                    // CRITICAL: only remember this record as "confirmed saved" once the server accepted it,
+                    // otherwise a failed push would be forgotten and never retried.
                     if (res.ok) oldMap.set(id, json);
                     return res;
                   }));
@@ -313,40 +348,66 @@
 
           var anyFailed = false;
           var settled = 0;
+          function done() {
+            settled++;
+            if (settled === allKeys.length) setSyncStatus(anyFailed ? "error" : "saved");
+          }
           allKeys.forEach(function (key) {
             Promise.all(keyTaskMap[key]).then(function (results) {
               var failed = results.some(function (r) { return r && !r.ok; });
               if (failed) {
                 anyFailed = true;
               } else {
-                pendingTracker.clear(key); // Fix 1/3: only clear once every sub-task for this key is confirmed saved
+                pendingTracker.clear(key); // only clear once every sub-task for this key is confirmed saved
+                if (legacyRows[key] && decomposedKeys[key]) {
+                  // Every record now exists as its own row, so the old whole-array row can go. Leaving it
+                  // would bring deleted records back the moment the last per-record row is removed.
+                  delete legacyRows[key];
+                  fetch("/api/data?key=" + encodeURIComponent(key), { method: "DELETE", headers: headers() }).then(function (res) {
+                    if (!res.ok) legacyRows[key] = true;
+                  }, function () { legacyRows[key] = true; });
+                }
               }
-              settled++;
-              if (settled === allKeys.length) setSyncStatus(anyFailed ? "error" : "saved");
+              done();
             }, function () {
               anyFailed = true;
-              settled++;
-              if (settled === allKeys.length) setSyncStatus(anyFailed ? "error" : "saved");
+              done();
             });
           });
         }
+        var storageFullWarned = false;
+        function warnStorageFull() {
+          if (storageFullWarned) return;
+          storageFullWarned = true;
+          window.alert("Your device storage is full, so the latest change could not be stored on this device.\n\nIt is still being sent to the cloud. Keep this tab open until the badge shows \"Saved to cloud\". Removing large photo attachments will free up space.");
+        }
         window.localStorage.setItem = function (key, value) {
-          origSetItem(key, value);
-          if (isSystemKey(key)) return;
-          pendingTracker.mark(key); // Fix 1: persist "unconfirmed" marker to real storage immediately, before the debounce
+          if (isSystemKey(key)) { origSetItem(key, value); return; }
+          try {
+            origSetItem(key, value);
+            delete memValues[key];
+          } catch (e) {
+            // Quota exceeded. Never lose the change silently: keep it in memory and still push it to the cloud.
+            memValues[key] = String(value);
+            warnStorageFull();
+          }
+          pendingTracker.mark(key); // persist "unconfirmed" marker to real storage immediately, before the debounce
           pending[key] = true;
           scheduleFlush();
         };
         window.localStorage.removeItem = function (key) {
           origRemoveItem(key);
           if (isSystemKey(key)) return;
+          delete memValues[key];
           pendingTracker.mark(key);
           pending[key] = true;
           scheduleFlush();
         };
 
+        // Warn while ANY change is unconfirmed (including saves in flight or failed). `pending` alone is
+        // emptied the moment a flush starts, so it cannot be used for this.
         window.addEventListener("beforeunload", function (e) {
-          if (Object.keys(pending).length > 0) {
+          if (pendingTracker.list().length > 0) {
             e.preventDefault();
             e.returnValue = "";
           }
@@ -373,21 +434,53 @@
         }, 12000);
       }
 
+      // Reads every row in bounded pages (the server caps each response), so a growing database can
+      // never be silently truncated or exceed the platform's response-size limit.
+      function fetchAllRows() {
+        var rows = [];
+        function page(offset) {
+          return fetch("/api/data?paged=1&offset=" + offset, { headers: { "x-passcode": getStoredPasscode() } })
+            .then(function (res) {
+              if (!res.ok) throw new Error("HTTP " + res.status);
+              return res.json();
+            })
+            .then(function (body) {
+              if (Array.isArray(body)) return rows.concat(body); // older server without paging
+              rows = rows.concat(body.rows || []);
+              if (body.next == null) return rows;
+              if (body.next <= offset) throw new Error("bad paging cursor");
+              return page(body.next);
+            });
+        }
+        return page(0);
+      }
+
+      // Resolves true when the cloud state was loaded, false when it could not be.
       function hydrateFromSupabase() {
-        return fetch("/api/data", {
-          headers: { "x-passcode": getStoredPasscode() }
-        }).then(function (res) { return res.ok ? res.json() : []; })
-          .then(function (rows) {
+        return fetchAllRows().then(function (rows) {
             var origSetItem = window.localStorage.setItem.bind(window.localStorage);
             var groups = {}; // baseKey -> Map(id -> parsedItem)
             var wholeValues = {}; // baseKey -> raw value (non-decomposed rows)
+            var staleDraft = false;
+
+            // Store cloud data locally. If the browser refuses (quota), the local copy stays stale, so the
+            // diff baseline must be the LOCAL copy: otherwise every cloud record missing locally would be
+            // misread as "user deleted this" and wiped from the cloud on the next save.
+            function applyLocal(baseKey, value) {
+              try { origSetItem(baseKey, value); return true; } catch (e) {
+                var localRaw = window.localStorage.getItem(baseKey);
+                lastKnownSnapshot[baseKey] = (localRaw && tryDecompose(localRaw)) || new Map();
+                return false;
+              }
+            }
 
             (rows || []).forEach(function (r) {
               var sep = r.key.indexOf("::");
+              var baseKey = sep === -1 ? r.key : r.key.slice(0, sep);
+              if (isSystemKey(baseKey)) { if (baseKey === DRAFT_KEY) staleDraft = true; return; }
               if (sep === -1) {
                 wholeValues[r.key] = r.value;
               } else {
-                var baseKey = r.key.slice(0, sep);
                 var id = r.key.slice(sep + 2);
                 if (!groups[baseKey]) groups[baseKey] = new Map();
                 try { groups[baseKey].set(id, JSON.parse(r.value)); } catch (e) {}
@@ -399,21 +492,15 @@
               var items = Array.from(groups[baseKey].values());
               var snapMap = new Map();
               groups[baseKey].forEach(function (item, id) { snapMap.set(id, JSON.stringify(item)); });
-              // lastKnownSnapshot always reflects the cloud's current confirmed state (needed for
-              // correct future diffing).
+              // lastKnownSnapshot always reflects the cloud's current confirmed state (needed for correct future diffing).
               lastKnownSnapshot[baseKey] = snapMap;
+              delete legacyRows[baseKey];
               if (!pendingTracker.isPending(baseKey)) {
-                origSetItem(baseKey, JSON.stringify(items));
+                applyLocal(baseKey, JSON.stringify(items));
               } else {
-                // CRITICAL FIX: a key with an unconfirmed pending change must NEVER simply be
-                // skipped here. If it were skipped, the local copy could remain stale/incomplete
-                // (missing records saved by someone else on another device) while lastKnownSnapshot
-                // above jumps forward to the full cloud state. The very next save would then diff
-                // the incomplete local array against the full cloud snapshot and misread every
-                // record missing locally as "the user wants this deleted" \u2014 permanently deleting
-                // real, already-confirmed cloud data. Instead, MERGE: keep every local record
-                // (including the not-yet-confirmed one) and fill in anything present in the cloud
-                // but missing locally, so nothing is ever lost in either direction.
+                // A key with an unconfirmed pending change must NEVER simply be skipped here (the stale local
+                // copy would later be diffed against the advanced snapshot and misread as deletions).
+                // MERGE: keep every local record and add whatever the cloud has that is missing locally.
                 var localRaw = window.localStorage.getItem(baseKey);
                 var localMap = localRaw ? tryDecompose(localRaw) : null;
                 var merged = localMap ? new Map(localMap) : new Map();
@@ -423,20 +510,45 @@
                 var mergedItems = Array.from(merged.values()).map(function (s) {
                   try { return JSON.parse(s); } catch (e) { return null; }
                 }).filter(function (x) { return x !== null; });
-                origSetItem(baseKey, JSON.stringify(mergedItems));
+                applyLocal(baseKey, JSON.stringify(mergedItems));
               }
             });
 
-            // Apply whole-value rows for keys that have no decomposed group yet (config objects, or not-yet-migrated arrays)
+            // Whole-value rows for keys with no decomposed group yet (config objects, or not-yet-migrated arrays)
             Object.keys(wholeValues).forEach(function (baseKey) {
               if (groups[baseKey]) return; // already handled via decomposed group
               var maybeMap = tryDecompose(wholeValues[baseKey]);
-              if (maybeMap) lastKnownSnapshot[baseKey] = maybeMap; // will migrate to per-record rows on next save
+              if (maybeMap) {
+                // Nothing exists as per-record rows yet, so the baseline is EMPTY: the next save pushes every
+                // record (a real migration) and then removes the legacy row. Using the legacy contents as the
+                // baseline would push only the edited record and hide all the others on the next load.
+                lastKnownSnapshot[baseKey] = new Map();
+                legacyRows[baseKey] = true;
+              }
               if (!pendingTracker.isPending(baseKey)) {
-                origSetItem(baseKey, wholeValues[baseKey]);
+                applyLocal(baseKey, wholeValues[baseKey]);
               }
             });
-          }).catch(function () {});
+
+            if (staleDraft) {
+              // An old build uploaded the shared draft; remove it so it cannot leak into someone else's form.
+              fetch("/api/data?key=" + encodeURIComponent(DRAFT_KEY), { method: "DELETE", headers: { "x-passcode": getStoredPasscode() } }).catch(function () {});
+            }
+            return true;
+          }).catch(function () { return false; });
+      }
+
+      // Server-side passcode check. Resolves {ok, index} or {ok:false, message}.
+      function verifyPasscode(code) {
+        return fetch("/api/data?verify=1", { headers: { "x-passcode": code } }).then(function (res) {
+          return res.json().catch(function () { return {}; }).then(function (body) {
+            if (res.ok) return { ok: true, index: typeof body.index === "number" ? body.index : -1 };
+            if (res.status === 401) return { ok: false, message: "Incorrect passcode." };
+            return { ok: false, message: body.error || ("Server error (" + res.status + ")") };
+          });
+        }, function () {
+          return { ok: false, message: "Cannot reach the server. Check your internet connection." };
+        });
       }
 
       function showGate() {
@@ -455,13 +567,15 @@
         document.getElementById("gateForm").addEventListener("submit", function (e) {
           e.preventDefault();
           var val = document.getElementById("gateInput").value;
-          sha256(val).then(function (hash) {
-            if (PASSCODE_HASHES.includes(hash)) {
+          document.getElementById("gateError").textContent = "";
+          verifyPasscode(val).then(function (r) {
+            if (r.ok) {
               sessionStorage.setItem(API_PASSCODE_KEY, val);
+              sessionStorage.setItem(USER_IDX_KEY, String(r.index));
               overlay.remove();
               launchApp();
             } else {
-              document.getElementById("gateError").textContent = "Incorrect passcode.";
+              document.getElementById("gateError").textContent = r.message;
               document.getElementById("gateInput").value = "";
               document.getElementById("gateInput").focus();
             }
@@ -470,10 +584,6 @@
       }
 
       document.addEventListener("DOMContentLoaded", function () {
-        if (!PASSCODE_HASHES || !PASSCODE_HASHES.length) {
-          document.body.innerHTML = '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:sans-serif;color:#B53D43;text-align:center;padding:20px;">Passcode not configured yet.<br/>Set PASSCODE_HASH in index.html (see SUPABASE_SETUP.md).</div>';
-          return;
-        }
         showGate();
       });
     })();
@@ -11084,8 +11194,6 @@ function dN() {
 function Qx(A) {
     ls(DA.STAFF, A)
 }
-const Mp = dN,
-    yQ = Qx;
 
 function hN() {
     const A = os(DA.ITEMS, S2);
@@ -11095,8 +11203,6 @@ function hN() {
 function Tx(A) {
     ls(DA.ITEMS, A)
 }
-const kp = hN,
-    wQ = Tx;
 
 function f0() {
     const A = os(DA.ISSUE_TYPES, F2);
@@ -11180,21 +11286,26 @@ function Y5() {
     }
 }
 
+// One place that gathers everything a backup contains (used by the cloud backup and the local download).
+function buildBackupPayload() {
+    return {
+        version: "3.0.0",
+        exportedAt: new Date().toISOString(),
+        branches: u0(),
+        staff: dN(),
+        items: hN(),
+        issueTypes: f0(),
+        riskSettings: gN(),
+        riskThresholds: Xf(),
+        eodRecords: d0(),
+        actionItems: h0(),
+        incidentReports: BQ(),
+        disciplinaryActions: g0()
+    }
+}
+
 function NQ() {
-    const A = {
-            version: "3.0.0",
-            exportedAt: new Date().toISOString(),
-            branches: u0(),
-            staff: dN(),
-            items: hN(),
-            issueTypes: f0(),
-            riskSettings: gN(),
-            riskThresholds: Xf(),
-            eodRecords: d0(),
-            actionItems: h0(),
-            incidentReports: BQ(),
-            disciplinaryActions: g0()
-        };
+    const A = buildBackupPayload();
     const backupKey = "manual_backup_" + new Date().toISOString().replace(/[:.]/g, "-");
     const CHUNK_SIZE = 40;
     const recordChunks = [];
@@ -11243,29 +11354,15 @@ function NQ() {
     })
 }
 function exportLocalBackup() {
-    const A = {
-            version: "3.0.0",
-            exportedAt: new Date().toISOString(),
-            branches: u0(),
-            staff: dN(),
-            items: hN(),
-            issueTypes: f0(),
-            riskSettings: gN(),
-            riskThresholds: Xf(),
-            eodRecords: d0(),
-            actionItems: h0(),
-            incidentReports: BQ(),
-            disciplinaryActions: g0()
-        },
+    const A = buildBackupPayload(),
         e = new Blob([JSON.stringify(A, null, 2)], {
             type: "application/json"
         }),
         t = URL.createObjectURL(e),
         r = document.createElement("a"),
-        i = new Date().toISOString().slice(0, 10);
+        i = Ou();
     r.href = t, r.download = `EOD-Matrix-Full-Backup-${i}.json`, document.body.appendChild(r), r.click(), document.body.removeChild(r), URL.revokeObjectURL(t)
 }
-const SQ = NQ;
 
 function __mergeArrayById(current, incoming) {
     if (!Array.isArray(incoming)) return current || [];
@@ -11332,7 +11429,6 @@ async function UQ(A) {
 function QQ() {
     Ux(E2), Qx(N2), Tx(S2), Lx(F2), pN(Fc), Ix(ad), hd(U2), gd(Q2), _x([]), pd([])
 }
-const TQ = QQ;
 
 function LQ() {
     hd([]), gd([]), _x([]), pd([])
@@ -11393,7 +11489,7 @@ function _Q(A, e) {
         isComparable: !1
     };
     const i = Math.abs(r.getTime() - t.getTime()),
-        s = Math.ceil(i / (1e3 * 60 * 60 * 24)) + 1,
+        s = Math.round(i / (1e3 * 60 * 60 * 24)) + 1,
         l = new Date(t);
     l.setDate(t.getDate() - 1);
     const c = new Date(l);
@@ -11423,9 +11519,6 @@ function mN(A, e) {
     };
     const i = (t - r) / r * 100;
     return Math.abs(i) < .1 ? {
-        percent: 0,
-        direction: "Stable"
-    } : i > 0 ? {
         percent: 0,
         direction: "Stable"
     } : i > 0 ? {
@@ -11463,6 +11556,146 @@ function vN(A, e) {
     return t >= r ? "Critical" : t >= i ? "High" : t >= s ? "Moderate" : "Low"
 }
 
+// Settings-tab values (flat keys such as criticalLoss / staffWeight*) are the source of truth.
+// The nested defaults only fill gaps. (Previously the stored defaults silently won, so edits made in
+// Settings never affected risk scores, levels or alerts.)
+function resolveRiskConfig(riskSettings, thresholds) {
+    return { ...(riskSettings || Fc), ...(thresholds || {}) }
+}
+
+// Spreadsheet-safe CSV cell: always quoted, quotes doubled, and cells that start with = + - @ are neutralised
+// so Excel/Sheets cannot execute them as formulas.
+function csvCell(A) {
+    let e = A == null ? "" : String(A);
+    return /^[=+\-@\t\r]/.test(e) && (e = "'" + e), '"' + e.replace(/"/g, '""') + '"'
+}
+
+// Download rows as a CSV file. A Blob is used because a data: URL breaks at the first "#" (encodeURI leaves it
+// unescaped) and the UTF-8 BOM makes Excel read the peso sign and accents correctly.
+function downloadCsv(A, e) {
+    const t = new Blob(["\uFEFF" + e.map(i => i.map(csvCell).join(",")).join("\r\n")], {
+            type: "text/csv;charset=utf-8"
+        }),
+        r = URL.createObjectURL(t),
+        s = document.createElement("a");
+    s.href = r, s.download = A, document.body.appendChild(s), s.click(), document.body.removeChild(s), setTimeout(() => URL.revokeObjectURL(r), 1e3)
+}
+
+// Downscale + re-encode an uploaded photo. Evidence photos are stored inside the record (localStorage + cloud),
+// so a raw 2 MB photo (~2.7 MB as base64) used up the whole 5 MB browser quota after one or two records.
+function compressImageFile(A, e = 1280, t = .72) {
+    return new Promise((r, i) => {
+        const s = new FileReader;
+        s.onerror = () => i(s.error || new Error("read failed")), s.onload = () => {
+            const l = s.result,
+                c = () => A.size <= 2 * 1024 * 1024 ? r(l) : i(new Error("image too large to store")),
+                f = new Image;
+            f.onerror = c, f.onload = () => {
+                try {
+                    const h = Math.min(1, e / Math.max(f.width, f.height)),
+                        g = Math.max(1, Math.round(f.width * h)),
+                        v = Math.max(1, Math.round(f.height * h)),
+                        y = document.createElement("canvas");
+                    y.width = g, y.height = v;
+                    const p = y.getContext("2d");
+                    if (!p) return c();
+                    p.fillStyle = "#fff", p.fillRect(0, 0, g, v), p.drawImage(f, 0, 0, g, v);
+                    const E = y.toDataURL("image/jpeg", t);
+                    r(E.length < l.length ? E : l)
+                } catch (h) {
+                    c()
+                }
+            }, f.src = l
+        }, s.readAsDataURL(A)
+    })
+}
+
+// When a branch or staff member is renamed in Settings, history is keyed by the old NAME. Returns the updated
+// arrays (or null when nothing changed) so records, actions and disciplinary logs follow the rename.
+function computeRenameCascade(A, e, t) {
+    if (!Array.isArray(e) || !Array.isArray(t)) return null;
+    const r = c => String(c == null ? "" : c).toLowerCase().trim(),
+        i = [];
+    if (t.forEach(c => {
+            const f = c && e.find(h => h && h.id === c.id);
+            f && f.name && c.name && f.name !== c.name && i.push({
+                id: c.id,
+                from: f.name,
+                to: c.name
+            })
+        }), i.length === 0) return null;
+    const s = (c, f) => {
+            let h = !1;
+            const g = c.map(v => {
+                const y = f(v);
+                return y ? (h = !0, y) : v
+            });
+            return h ? g : null
+        },
+        l = {};
+    if (A === "staff") {
+        const c = (f, h) => i.find(g => f != null && f !== "" ? f === g.id : r(h) === r(g.from));
+        l.records = s(d0(), f => {
+            const h = c(f.staffId, f.staffName);
+            return h && f.staffName !== h.to ? {
+                ...f,
+                staffName: h.to
+            } : null
+        }), l.actions = s(h0(), f => {
+            const h = i.find(v => r(f.staffName) === r(v.from)),
+                g = i.find(v => r(f.assignedTo) === r(v.from));
+            return h || g ? {
+                ...f,
+                ...h ? {
+                    staffName: h.to
+                } : {},
+                ...g ? {
+                    assignedTo: g.to
+                } : {}
+            } : null
+        }), l.disc = s(g0(), f => {
+            const h = c(f.staffId, f.staffName);
+            return h && f.staffName !== h.to ? {
+                ...f,
+                staffName: h.to
+            } : null
+        })
+    } else {
+        const c = f => i.find(h => r(f) === r(h.from)),
+            f = h => g => {
+                const v = c(g.branch);
+                return v && g.branch !== v.to ? {
+                    ...g,
+                    branch: v.to
+                } : null
+            };
+        l.records = s(d0(), f()), l.actions = s(h0(), f()), l.disc = s(g0(), f()), l.staff = s(dN(), f())
+    }
+    return l
+}
+
+// Newest record decides the default month/year of the Monthly view (falls back to today).
+function __latestYearMonth(A) {
+    let e = "";
+    (A || []).forEach(t => {
+        t && typeof t.date == "string" && /^\d{4}-\d{2}/.test(t.date) && t.date > e && (e = t.date)
+    });
+    const t = Ou();
+    return {
+        year: (e || t).substring(0, 4),
+        month: (e || t).substring(5, 7)
+    }
+}
+// Years offered in the Monthly view: every year that has records, through next year, always incl. the selected one.
+function __monthlyYears(A, e) {
+    const t = new Date().getFullYear(),
+        r = new Set([String(t), String(t + 1), String(e)]);
+    (A || []).forEach(i => {
+        i && typeof i.date == "string" && /^\d{4}/.test(i.date) && r.add(i.date.substring(0, 4))
+    });
+    return Array.from(r).sort()
+}
+
 function p0(A, e, t, r, i) {
     var j, L, _, k;
     let s = [],
@@ -11470,7 +11703,7 @@ function p0(A, e, t, r, i) {
     Array.isArray(t) && t.length > 0 && "actionRequired" in t[0] && (s = t), r && Array.isArray(r) && (s = r);
     const c = new Map;
     A.forEach(R => {
-        c.set(R.name.toLowerCase().trim(), {
+        c.set((R.name || "").toLowerCase().trim(), {
             staff: R,
             records: [],
             exposure: 0,
@@ -11493,8 +11726,8 @@ function p0(A, e, t, r, i) {
             exposure: 0,
             issueTypeCounts: {},
             itemCounts: {}
-        }, c.set(V, O)), O.records.push(R), O.exposure += Number(R.totalFinancialImpact || 0), R.issueType && (O.issueTypeCounts[R.issueType] = (O.issueTypeCounts[R.issueType] || 0) + 1), R.items.forEach(re => {
-            re.itemName && (O.itemCounts[re.itemName] = (O.itemCounts[re.itemName] || 0) + re.quantity)
+        }, c.set(V, O)), O.records.push(R), O.exposure += Number(R.totalFinancialImpact || 0), R.issueType && (O.issueTypeCounts[R.issueType] = (O.issueTypeCounts[R.issueType] || 0) + 1), (R.items || []).forEach(re => {
+            re.itemName && (O.itemCounts[re.itemName] = (O.itemCounts[re.itemName] || 0) + (Number(re.quantity) || 0))
         })
     });
     const f = Array.from(c.values());
@@ -11508,7 +11741,7 @@ function p0(A, e, t, r, i) {
                 re = jQ(R.records, 7),
                 D = s.filter(M => {
                     var z, q;
-                    return (((z = M.staffName) == null ? void 0 : z.toLowerCase().trim()) === R.staff.name.toLowerCase().trim() || ((q = M.branch) == null ? void 0 : q.toLowerCase().trim()) === R.staff.branch.toLowerCase().trim()) && (M.status === "Open" || M.status === "In Progress")
+                    return ((z = M.staffName) == null ? void 0 : z.toLowerCase().trim()) === (R.staff.name || "").toLowerCase().trim() && (M.status === "Open" || M.status === "In Progress")
                 }).length;
             return O > h && (h = O), V > g && (g = V), re > v && (v = re), D > y && (y = D), {
                 item: R,
@@ -11518,10 +11751,10 @@ function p0(A, e, t, r, i) {
                 unresolvedCount: D
             }
         }),
-        E = (l.staffWeightFinancialLoss || ((j = l.weights) == null ? void 0 : j.financialExposure) || 40) / 100,
-        B = (l.staffWeightIncidentFrequency || ((L = l.weights) == null ? void 0 : L.issueFrequency) || 30) / 100,
-        Q = (l.staffWeightRepeatBehavior || ((_ = l.weights) == null ? void 0 : _.repeatIncidents) || 20) / 100,
-        N = (l.staffWeightUnresolvedActions || ((k = l.weights) == null ? void 0 : k.unresolvedIssues) || 10) / 100,
+        E = (l.staffWeightFinancialLoss ?? ((j = l.weights) == null ? void 0 : j.financialExposure) ?? 40) / 100,
+        B = (l.staffWeightIncidentFrequency ?? ((L = l.weights) == null ? void 0 : L.issueFrequency) ?? 30) / 100,
+        Q = (l.staffWeightRepeatBehavior ?? ((_ = l.weights) == null ? void 0 : _.repeatIncidents) ?? 20) / 100,
+        N = (l.staffWeightUnresolvedActions ?? ((k = l.weights) == null ? void 0 : k.unresolvedIssues) ?? 10) / 100,
         F = p.map(R => {
             const V = h > 0 ? R.exposure / h * 100 : 0,
                 O = g > 0 ? R.issueCount / g * 100 : 0,
@@ -11841,7 +12074,7 @@ function kQ(A, e, t, r, i = Fc) {
             severity: "High",
             entityType: "Trend",
             entityName: p.issueType,
-            reason: `Incident count surging by ${p.trendPercentage.toFixed(0)}% compared to the immediately preceding period.`,
+            reason: `Financial exposure up ${p.trendPercentage.toFixed(0)}% compared to the immediately preceding period.`,
             relevantAmountOrCount: `${p.totalIncidents} incidents`,
             dateOrPeriod: "Surge Warning"
         })
@@ -11883,10 +12116,10 @@ function HQ(A, e = ad) {
     }), t
 }
 
-function PQ(A, e) {
+function PQ(A, e, th = {}) {
     const t = A.reduce((s, l) => s + (Number(l.totalFinancialImpact) || 0), 0),
         r = A.length,
-        i = A.filter(s => s.varianceStatus === "R" || (s.totalFinancialImpact || 0) >= 3e3).length;
+        i = A.filter(s => s.varianceStatus === "R" || (s.totalFinancialImpact || 0) >= (th.criticalLoss || 3e3)).length;
     return {
         totalExposure: t,
         totalIssues: r,
@@ -12032,7 +12265,7 @@ function xN(A) {
 function J5(A, e) {
     if (!A || !e || e <= 0) return;
     const t = new Date(`${A}T00:00:00`);
-    return t.setDate(t.getDate() + e), t.toISOString().slice(0, 10)
+    return t.setDate(t.getDate() + e), `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,"0")}-${String(t.getDate()).padStart(2,"0")}`
 }
 /**
  * @license lucide-react v0.546.0 - ISC
@@ -13635,7 +13868,7 @@ const gL = [
                                     className: "text-[10px] font-mono font-bold uppercase tracking-widest text-[#C5A059]",
                                     children: "Branch Risk Drilldown"
                                 }), u.jsxs("span", {
-                                    className: `text-[10px] font-bold px-2 py-0.5 rounded-full ${A.riskLevel==="Critical"?"bg-red-600 text-white":A.riskLevel==="High"?"bg-amber-600 text-white":A.riskLevel==="Medium"?"bg-yellow-500 text-black":"bg-green-600 text-white"}`,
+                                    className: `text-[10px] font-bold px-2 py-0.5 rounded-full ${A.riskLevel==="Critical"?"bg-red-600 text-white":A.riskLevel==="High"?"bg-amber-600 text-white":A.riskLevel==="Moderate"?"bg-yellow-500 text-black":"bg-green-600 text-white"}`,
                                     children: [A.riskLevel, " Risk"]
                                 })]
                             }), u.jsx("h2", {
@@ -13897,28 +14130,7 @@ const gL = [
         onNavigateToMatrix: f,
         onNavigateToTracker: h
     }) => {
-        const g = ve.useMemo(() => s && s.financialThresholds ? s : {
-                financialThresholds: {
-                    medium: (l == null ? void 0 : l.moderateLoss) || 500,
-                    high: (l == null ? void 0 : l.highLoss) || 1500,
-                    critical: (l == null ? void 0 : l.criticalLoss) || 3e3
-                },
-                repeatIncidentThreshold: (l == null ? void 0 : l.consecutiveErrorCount) || 2,
-                repeatIncidentWindowDays: 7,
-                trendAlertThresholdPercent: 15,
-                riskScoreThresholds: {
-                    lowMax: (l == null ? void 0 : l.moderateStaffRiskScore) || 30,
-                    mediumMax: (l == null ? void 0 : l.highStaffRiskScore) || 60,
-                    highMax: (l == null ? void 0 : l.criticalStaffRiskScore) || 80,
-                    criticalMin: (l == null ? void 0 : l.criticalStaffRiskScore) || 80
-                },
-                weights: {
-                    financialExposure: (l == null ? void 0 : l.staffWeightFinancialLoss) || 40,
-                    issueFrequency: (l == null ? void 0 : l.staffWeightIncidentFrequency) || 30,
-                    repeatIncidents: (l == null ? void 0 : l.staffWeightRepeatBehavior) || 20,
-                    unresolvedIssues: (l == null ? void 0 : l.staffWeightUnresolvedActions) || 10
-                }
-            }, [s, l]),
+        const g = ve.useMemo(() => resolveRiskConfig(s, l), [s, l]),
             [v, y] = ve.useState({
                 dateFrom: "",
                 dateTo: "",
@@ -13967,7 +14179,7 @@ const gL = [
             }, [O]),
             W = ve.useMemo(() => {
                 var Re;
-                const he = ((Re = g == null ? void 0 : g.financialThresholds) == null ? void 0 : Re.critical) || 3e3;
+                const he = (g == null ? void 0 : g.criticalLoss) || ((Re = g == null ? void 0 : g.financialThresholds) == null ? void 0 : Re.critical) || 3e3;
                 return (O || []).filter(et => (Number(et.totalFinancialImpact) || 0) >= he || et.varianceStatus === "R").length
             }, [O, g]),
             U = le.length > 0 && le[0].financialExposure > 0 ? le[0] : null;
@@ -15637,16 +15849,11 @@ const gL = [
                     alert("Please upload an image file (PNG, JPG).");
                     return
                 }
-                if (Ge.size > 2 * 1024 * 1024) {
-                    alert("Image file size must be less than 2MB.");
+                if (Ge.size > 15 * 1024 * 1024) {
+                    alert("Image file size must be less than 15MB.");
                     return
                 }
-                const lt = new FileReader;
-                lt.onload = wt => {
-                    var yt;
-                    const Bt = (yt = wt.target) == null ? void 0 : yt.result;
-                    Bt && X(Bt)
-                }, lt.readAsDataURL(Ge)
+                compressImageFile(Ge).then(Bt => Bt && X(Bt)).catch(() => alert("This image could not be processed. Please choose a smaller image (under 2MB)."))
             },
             he = () => {
                 y(null), E(Ou()), Q(""), F(""), L("Wrong EOD"), k("Y"), V("FG"), re("Staff Error"), M(""), q(""), X(""), ne([Ee(), Ee()]), we([]), Y5()
@@ -30264,7 +30471,7 @@ Ht.API.PDFObject = (function() {
 function Wf(A) {
     if (!A) return "OTHER";
     const e = A.toLowerCase().replace(/[\s\-_]/g, "");
-    return e.includes("wrongeod") || e.includes("eodcalc") || e.includes("eoddiscrepancy") || e === "eod" ? "WRONG_EOD" : e.includes("wrongentry") || e.includes("typo") || e.includes("entryerror") || e.includes("encoding") || e.includes("encoded") ? "WRONG_ENTRY" : e.includes("unpunch") || e.includes("unpunched") || e.includes("missingpunch") || e.includes("missingsale") ? "UNPUNCH" : e.includes("overpunch") || e.includes("overpunch") || e.includes("doublepunch") || e.includes("excesspunch") ? "OVERPUNCH" : "OTHER"
+    return e.includes("wrongeod") || e.includes("eodcalc") || e.includes("eoddiscrepancy") || e === "eod" ? "WRONG_EOD" : e.includes("wrongentry") || e.includes("typo") || e.includes("entryerror") || e.includes("encoding") || e.includes("encoded") ? "WRONG_ENTRY" : e.includes("unpunch") || e.includes("unpunched") || e.includes("missingpunch") || e.includes("missingsale") ? "UNPUNCH" : e.includes("overpunch") || e.includes("doublepunch") || e.includes("excesspunch") ? "OVERPUNCH" : "OTHER"
 }
 const g8 = ({
         records: A,
@@ -31045,14 +31252,14 @@ const g8 = ({
         value: "12",
         label: "December"
     }],
-    m8 = ["2026", "2027", "2028", "2029", "2030"],
     v8 = ({
         records: A,
         branches: e,
         staffList: t,
-        issueTypes: r = []
+        issueTypes: r = [],
+        thresholds: th
     }) => {
-        const [i, s] = ve.useState("2026"), [l, c] = ve.useState(() => A.length > 0 && A[0].date && A[0].date.length >= 7 ? A[0].date.substring(5, 7) : "08"), f = `${i}-${l}`, [h, g] = ve.useState("All"), [v, y] = ve.useState(!1), p = ve.useMemo(() => A.filter(_ => !(!_.date.startsWith(f) || h !== "All" && _.branch !== h)), [A, f, h]), E = ve.useMemo(() => p.reduce((_, k) => _ + (Number(k.totalFinancialImpact) || 0), 0), [p]), B = p.length, Q = ve.useMemo(() => {
+        const [i, s] = ve.useState(() => __latestYearMonth(A).year), [l, c] = ve.useState(() => __latestYearMonth(A).month), f = `${i}-${l}`, [h, g] = ve.useState("All"), [v, y] = ve.useState(!1), p = ve.useMemo(() => A.filter(_ => !(!_.date.startsWith(f) || h !== "All" && _.branch !== h)), [A, f, h]), E = ve.useMemo(() => p.reduce((_, k) => _ + (Number(k.totalFinancialImpact) || 0), 0), [p]), B = p.length, Q = ve.useMemo(() => {
             const _ = {};
             return r.forEach(k => {
                 k.active !== !1 && k.name && (_[k.name] || (_[k.name] = {
@@ -31073,7 +31280,7 @@ const g8 = ({
                     issues: 0,
                     exposure: 0,
                     critical: 0
-                }), _[k.branch].issues++, _[k.branch].exposure += Number(k.totalFinancialImpact || 0), (k.varianceStatus === "R" || (k.totalFinancialImpact || 0) >= 3e3) && _[k.branch].critical++
+                }), _[k.branch].issues++, _[k.branch].exposure += Number(k.totalFinancialImpact || 0), (k.varianceStatus === "R" || (k.totalFinancialImpact || 0) >= (th && th.criticalLoss || 3e3)) && _[k.branch].critical++
             }), Object.entries(_).sort((k, R) => R[1].exposure - k[1].exposure)
         }, [p]), F = ve.useMemo(() => {
             const _ = {};
@@ -31248,7 +31455,7 @@ const g8 = ({
                         value: i,
                         onChange: _ => s(_.target.value),
                         className: "w-full px-3 py-2 border border-[#EAE3D5] rounded-xl bg-white text-gray-900 font-bold focus:outline-none focus:ring-1 focus:ring-[#C5A059] cursor-pointer",
-                        children: m8.map(_ => u.jsx("option", {
+                        children: __monthlyYears(A, i).map(_ => u.jsx("option", {
                             value: _,
                             children: _
                         }, _))
@@ -31646,11 +31853,11 @@ const g8 = ({
             if (h !== "All" && Ee.branch !== h || v !== "All" && Ee.status !== v || p !== "All" && Ee.priority !== p) return !1;
             if (B.trim()) {
                 const pt = B.toLowerCase().trim(),
-                    nt = Ee.branch.toLowerCase().includes(pt),
+                    nt = (Ee.branch || "").toLowerCase().includes(pt),
                     mt = ((Pe = Ee.staffName) == null ? void 0 : Pe.toLowerCase().includes(pt)) || !1,
-                    xt = Ee.actionRequired.toLowerCase().includes(pt),
-                    Ke = Ee.assignedTo.toLowerCase().includes(pt),
-                    ft = Ee.issueType.toLowerCase().includes(pt);
+                    xt = (Ee.actionRequired || "").toLowerCase().includes(pt),
+                    Ke = (Ee.assignedTo || "").toLowerCase().includes(pt),
+                    ft = (Ee.issueType || "").toLowerCase().includes(pt);
                 if (!nt && !mt && !xt && !Ke && !ft) return !1
             }
             return !0
@@ -31687,7 +31894,7 @@ const g8 = ({
                 actionRequired: ee.trim(),
                 status: ge,
                 dueDate: W,
-                completionDate: ge === "Resolved" || ge === "Closed" ? new Date().toISOString().slice(0, 10) : void 0,
+                completionDate: ge === "Resolved" || ge === "Closed" ? ((pt = A.find(nt => nt.id === j)) == null ? void 0 : pt.completionDate) || Ou() : void 0,
                 notes: G.trim() || void 0,
                 proofImage1: ie || void 0,
                 proofImage2: pe || void 0,
@@ -31698,7 +31905,7 @@ const g8 = ({
             const pt = {
                 ...Ee,
                 status: Pe,
-                completionDate: Pe === "Resolved" || Pe === "Closed" ? new Date().toISOString().slice(0, 10) : void 0
+                completionDate: Pe === "Resolved" || Pe === "Closed" ? Ee.completionDate || Ou() : void 0
             };
             i(pt)
         };
@@ -32379,9 +32586,10 @@ const y8 = ({
     disciplinaryActions: i = [],
     onSaveDisciplinaryAction: s,
     onDeleteDisciplinaryAction: l,
-    onNavigateToMatrix: c
+    onNavigateToMatrix: c,
+    thresholds: th
 }) => {
-    const [f, h] = ve.useState(""), [g, v] = ve.useState("All"), [y, p] = ve.useState("All"), [E, B] = ve.useState("All"), [Q, N] = ve.useState(null), [F, j] = ve.useState(!1), [L, _] = ve.useState("Warning"), [k, R] = ve.useState(""), [V, O] = ve.useState(() => new Date().toISOString().slice(0, 10)), [re, D] = ve.useState(String(um.Warning)), [M, z] = ve.useState(""), q = ve.useMemo(() => p0(A, e, t), [A, e, t]), le = ve.useMemo(() => xN(i), [i]), X = ve.useMemo(() => Object.values(le).filter(H => H.stage === "Termination" || H.status === "Active").map(H => ({
+    const [f, h] = ve.useState(""), [g, v] = ve.useState("All"), [y, p] = ve.useState("All"), [E, B] = ve.useState("All"), [Q, N] = ve.useState(null), [F, j] = ve.useState(!1), [L, _] = ve.useState("Warning"), [k, R] = ve.useState(""), [V, O] = ve.useState(() => Ou()), [re, D] = ve.useState(String(um.Warning)), [M, z] = ve.useState(""), q = ve.useMemo(() => p0(A, e, t, void 0, resolveRiskConfig(gN(), th)), [A, e, t, th]), le = ve.useMemo(() => xN(i), [i]), X = ve.useMemo(() => Object.values(le).filter(H => H.stage === "Termination" || H.status === "Active").map(H => ({
         action: H,
         countdown: m0(H)
     })).sort((H, fe) => {
@@ -32423,7 +32631,7 @@ const y8 = ({
         var fe;
         return ((fe = H.staffName) == null ? void 0 : fe.toLowerCase().trim()) === Q.staffName.toLowerCase().trim()
     }) : [], [Q, t]), W = ve.useMemo(() => Q ? i.filter(H => H.staffId === Q.staffId).slice().sort((H, fe) => (fe.issuedDate || "").localeCompare(H.issuedDate || "") || (fe.createdAt || "").localeCompare(H.createdAt || "")) : [], [Q, i]), U = () => {
-        _("Warning"), R(""), O(new Date().toISOString().slice(0, 10)), D(String(um.Warning)), z(""), j(!1)
+        _("Warning"), R(""), O(Ou()), D(String(um.Warning)), z(""), j(!1)
     }, G = H => {
         _(H), D(String(um[H]))
     }, Y = () => {
@@ -33188,11 +33396,11 @@ const B8 = ({
                 if (_ && H.date < _ || R && H.date > R) return !1;
                 if (h.trim()) {
                     const ye = h.toLowerCase().trim(),
-                        Le = H.branch.toLowerCase().includes(ye),
-                        ke = H.staffName.toLowerCase().includes(ye),
-                        Ve = H.issueType.toLowerCase().includes(ye),
+                        Le = (H.branch || "").toLowerCase().includes(ye),
+                        ke = (H.staffName || "").toLowerCase().includes(ye),
+                        Ve = (H.issueType || "").toLowerCase().includes(ye),
                         Se = ((fe = H.remarks) == null ? void 0 : fe.toLowerCase().includes(ye)) || !1,
-                        te = H.items.some(He => He.itemName.toLowerCase().includes(ye));
+                        te = (H.items || []).some(He => (He.itemName || "").toLowerCase().includes(ye));
                     if (!Le && !ke && !Ve && !Se && !te) return !1
                 }
                 return !0
@@ -33210,12 +33418,8 @@ const B8 = ({
                     return
                 }
                 const H = ["Record ID", "Date", "Branch", "Staff Name", "Issue Type", "Variance Status", "Department", "Total Financial Impact (PHP)", "Items Logged", "Root Cause", "Remarks"],
-                    fe = Y.map(Ve => [`"${Ve.id}"`, `"${Ve.date}"`, `"${Ve.branch}"`, `"${Ve.staffName}"`, `"${Ve.issueType}"`, `"${Ve.varianceStatus}"`, `"${Ve.department||"FG"}"`, `"${Ve.totalFinancialImpact.toFixed(2)}"`, `"${Ve.items.map(Se=>`${Se.quantity}x ${Se.itemName} @ ${Se.unitPrice}`).join("; ")}"`, `"${Ve.rootCause||""}${Ve.rootCauseOther?` (${Ve.rootCauseOther})`:""}"`, `"${(Ve.remarks||"").replace(/"/g,'""')}"`]),
-                    ye = "data:text/csv;charset=utf-8," + [H.join(","), ...fe.map(Ve => Ve.join(","))].join(`
-`),
-                    Le = encodeURI(ye),
-                    ke = document.createElement("a");
-                ke.setAttribute("href", Le), ke.setAttribute("download", `EOD_Records_Export_${new Date().toISOString().slice(0,10)}.csv`), document.body.appendChild(ke), ke.click(), document.body.removeChild(ke)
+                    fe = Y.map(Ve => [Ve.id, Ve.date, Ve.branch, Ve.staffName, Ve.issueType, Ve.varianceStatus, Ve.department || "FG", Number(Ve.totalFinancialImpact || 0).toFixed(2), (Ve.items || []).map(Se => `${Se.quantity}x ${Se.itemName} @ ${Se.unitPrice}`).join("; "), `${Ve.rootCause || ""}${Ve.rootCauseOther ? ` (${Ve.rootCauseOther})` : ""}`, Ve.remarks || ""]);
+                downloadCsv(`EOD_Records_Export_${Ou()}.csv`, [H, ...fe])
             };
         return u.jsxs("div", {
             id: "eod-records-tab-container",
@@ -33930,7 +34134,7 @@ const B8 = ({
         }, yt = Ie => {
             confirm("Delete this staff member from master records? (Historical EOD logs with this name will remain preserved)") && s(A.filter(Yt => Yt.id !== Ie))
         }, or = Ie => {
-            Ie ? (ee(Ie.id), ge(Ie.code), W(Ie.name), G(Ie.region || "Davao City")) : (ee(null), ge(`BR-${e.length+1}`), W(""), G("Davao City")), le(!0)
+            Ie ? (ee(Ie.id), ge(Ie.code || ""), W(Ie.name), G(Ie.region || "Davao City")) : (ee(null), ge(`BR-${e.length+1}`), W(""), G("Davao City")), le(!0)
         }, It = Ie => {
             if (Ie.preventDefault(), !we.trim()) {
                 alert("Branch name is required");
@@ -35080,13 +35284,78 @@ const B8 = ({
         })
     };
 
+class AppErrorBoundary extends ve.Component {
+    constructor(A) {
+        super(A), this.state = {
+            error: null
+        }
+    }
+    static getDerivedStateFromError(A) {
+        return {
+            error: A
+        }
+    }
+    componentDidCatch(A, e) {
+        console.error("App crashed:", A, e && e.componentStack)
+    }
+    render() {
+        return this.state.error ? u.jsxs("div", {
+            style: {
+                fontFamily: "system-ui,sans-serif",
+                maxWidth: 480,
+                margin: "12vh auto",
+                padding: 24,
+                textAlign: "center",
+                color: "#2C2A29"
+            },
+            children: [u.jsx("h1", {
+                style: {
+                    fontSize: 20,
+                    fontWeight: 800
+                },
+                children: "Something went wrong on this screen"
+            }), u.jsx("p", {
+                style: {
+                    fontSize: 14,
+                    color: "#6C655B",
+                    margin: "12px 0 20px"
+                },
+                children: "Your saved data was not changed. Reload the page to continue."
+            }), u.jsx("pre", {
+                style: {
+                    fontSize: 11,
+                    textAlign: "left",
+                    background: "#F3EEE4",
+                    padding: 10,
+                    borderRadius: 8,
+                    whiteSpace: "pre-wrap",
+                    marginBottom: 16
+                },
+                children: String(this.state.error && this.state.error.message || this.state.error)
+            }), u.jsx("button", {
+                onClick: () => window.location.reload(),
+                style: {
+                    padding: "10px 20px",
+                    background: "#1B1918",
+                    color: "#fff",
+                    border: 0,
+                    borderRadius: 8,
+                    fontWeight: 600,
+                    cursor: "pointer"
+                },
+                children: "Reload"
+            })]
+        }) : this.props.children
+    }
+}
+
 function E8() {
     const [A, e] = ve.useState("overview"), [t, r] = ve.useState([]), [i, s] = ve.useState([]), [l, c] = ve.useState([]), [f, h] = ve.useState([]), [g, v] = ve.useState([]), [y, p] = ve.useState(Xf()), [E, B] = ve.useState([]), [Q, N] = ve.useState([]), [F, j] = ve.useState(void 0), [L, _] = ve.useState(void 0), [k, R] = ve.useState(void 0), [V, O] = ve.useState(void 0), [__focusRecordId, __setFocusRecordId] = ve.useState(null), re = dQ.useRef(null);
     ve.useEffect(() => {
-        r(d0()), s(u0()), c(Mp()), h(kp()), v(f0()), p(Xf()), B(h0()), N(g0())
+        r(d0()), s(u0()), c(dN()), h(hN()), v(f0()), p(Xf()), B(h0()), N(g0())
     }, []);
     const D = ve.useMemo(() => HQ(t, y), [t, y]),
-        M = ve.useMemo(() => PQ(t, i), [t, i]),
+        M = ve.useMemo(() => PQ(t, i, y), [t, i, y]),
         z = ve.useMemo(() => (E || []).filter(Se => Se && (Se.status === "Open" || Se.status === "In Progress")).length, [E]),
         q = ve.useCallback(Se => {
             r(te => {
@@ -35127,14 +35396,19 @@ function E8() {
                 return pd(He), He
             })
         }, []),
+        __cascade = ve.useCallback(Se => {
+            Se && (Se.records && (hd(Se.records), r(Se.records)), Se.actions && (gd(Se.actions), B(Se.actions)), Se.disc && (pd(Se.disc), N(Se.disc)), Se.staff && (Qx(Se.staff), c(Se.staff)))
+        }, []),
         we = ve.useCallback(Se => {
-            c(Se), yQ(Se)
+            const te = dN();
+            c(Se), Qx(Se), __cascade(computeRenameCascade("staff", te, Se))
         }, []),
         W = ve.useCallback(Se => {
-            s(Se), Ux(Se)
+            const te = u0();
+            s(Se), Ux(Se), __cascade(computeRenameCascade("branch", te, Se))
         }, []),
         U = ve.useCallback(Se => {
-            h(Se), wQ(Se)
+            h(Se), Tx(Se)
         }, []),
         G = ve.useCallback(Se => {
             v(Se), Lx(Se)
@@ -35161,7 +35435,7 @@ function E8() {
             })
         }, []),
         H = ve.useCallback(() => {
-            SQ()
+            NQ()
         }, []),
         fe = ve.useCallback(() => {
             var Se;
@@ -35172,7 +35446,7 @@ function E8() {
             const te = (He = Se.target.files) == null ? void 0 : He[0];
             if (te) try {
                 const ot = await UQ(te);
-                ot.success ? (r(d0()), s(u0()), c(Mp()), h(kp()), v(f0()), p(Xf()), B(h0()), N(g0()), alert("System data restored successfully from backup!")) : alert(`Failed to restore data: ${ot.error}`)
+                ot.success ? (r(d0()), s(u0()), c(dN()), h(hN()), v(f0()), p(Xf()), B(h0()), N(g0()), alert("System data restored successfully from backup!")) : alert(`Failed to restore data: ${ot.error}`)
             } catch {
                 alert("Error reading JSON file.")
             } finally {
@@ -35180,10 +35454,10 @@ function E8() {
             }
         }, []),
         Le = ve.useCallback(() => {
-            confirm("Are you sure you want to reset all records, staff, and branches back to initial realistic seed data? This will overwrite custom changes.") && (TQ(), r(d0()), s(u0()), c(Mp()), h(kp()), v(f0()), p(Xf()), B(h0()), N(g0()), alert("Database reset to realistic seed data successfully."))
+            confirm("Reset EVERYTHING (records, staff, branches, items, settings) back to the built-in SAMPLE data?\n\nAll real data will be replaced on this device AND in the cloud for every user. A backup file of your current data is downloaded first.\n\nContinue?") && (exportLocalBackup(), QQ(), r(d0()), s(u0()), c(dN()), h(hN()), v(f0()), p(Xf()), B(h0()), N(g0()), alert("Database reset to sample data. Your previous data was saved in the backup file that was just downloaded."))
         }, []),
         ke = ve.useCallback(() => {
-            confirm("WARNING: Are you sure you want to delete all daily EOD transaction records? Master staff and branches will be kept.") && (LQ(), r([]), B([]), N([]), alert("All daily transaction records cleared."))
+            confirm("WARNING: Delete ALL daily EOD records, action items, incident reports and disciplinary actions?\n\nStaff, branches, items and settings are kept. This is removed from the cloud for every user. A backup file of your current data is downloaded first.\n\nContinue?") && (exportLocalBackup(), LQ(), r([]), B([]), N([]), alert("All daily transaction records cleared. A backup file was downloaded first."))
         }, []),
         Ve = {
             overview: "Executive Overview & Operations Matrix",
@@ -35251,6 +35525,7 @@ function E8() {
                     initialBranch: F,
                     initialDate: L
                 }), A === "monthly" && u.jsx(v8, {
+                    thresholds: y,
                     records: t,
                     branches: i,
                     staffList: l,
@@ -35269,6 +35544,7 @@ function E8() {
                     onClearFocusRecord: () => __setFocusRecordId(null),
                     disciplinaryActions: Q
                 }), A === "staff" && u.jsx(y8, {
+                    thresholds: y,
                     staffList: l,
                     records: t,
                     actionItems: E,
@@ -35308,7 +35584,9 @@ function E8() {
     })
 }
 bQ.createRoot(document.getElementById("root")).render(u.jsx(ve.StrictMode, {
-    children: u.jsx(E8, {})
+    children: u.jsx(AppErrorBoundary, {
+        children: u.jsx(E8, {})
+    })
 }));
 /*!
  * html2canvas 1.4.1 <https://html2canvas.hertzen.com>
