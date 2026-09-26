@@ -21,9 +21,12 @@
       All three are plain classic scripts (not modules) to preserve their original shared-scope,
       IIFE-based behavior exactly as before.
     -->
-    <script src="/assets/js/config.js"></script>
-    <script src="/assets/js/app-bootstrap.js"></script>
-    <script src="/assets/js/display-settings.js"></script>
+    <!-- ?v= query bumps below force browsers/CDN to fetch a fresh copy after every edit to
+         these files, instead of reusing the 1-hour cached copy set by vercel.json. Bump the
+         number any time one of these three files changes. -->
+    <script src="/assets/js/config.js?v=2"></script>
+    <script src="/assets/js/app-bootstrap.js?v=2"></script>
+    <script src="/assets/js/display-settings.js?v=2"></script>
   </head>
   <body class="bg-[#FAF7F2] text-[#2C2A29] font-sans antialiased selection:bg-[#C5A059] selection:text-black">
     <div id="root"></div>
