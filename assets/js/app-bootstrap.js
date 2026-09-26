@@ -385,7 +385,16 @@
       window.alert("Your device storage is full, so the latest change could not be stored on this device.\n\nIt is still being sent to the cloud. Keep this tab open until the badge shows \"Saved to cloud\". Removing large photo attachments will free up space.");
     }
     window.localStorage.setItem = function (key, value) {
-      if (isSystemKey(key)) { origSetItem(key, value); return; }
+      if (isSystemKey(key)) {
+        // System keys (draft, session prefs) are never synced to the cloud, so there is no
+        // "still being saved to the cloud" fallback for them. If the device quota is full,
+        // the write must be swallowed here rather than thrown -- otherwise it escapes as an
+        // uncaught exception into whatever autosave effect called setItem (e.g. the Daily
+        // Entry draft autosave), which can silently break that effect for the rest of the
+        // session. Losing one draft-save write is far better than that.
+        try { origSetItem(key, value); } catch (e) {}
+        return;
+      }
       try {
         origSetItem(key, value);
         delete memValues[key];
