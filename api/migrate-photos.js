@@ -17,7 +17,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 
 const BUCKET = "evidence-photos";
 const SIGNED_URL_TTL_SECONDS = 60 * 60 * 24 * 365;
-const ROW_PATTERN = "eod_matrix_%::%";
+const ROW_PATTERN = "eod_matrix_*::*"; // PostgREST's `like` filter uses * in place of % to avoid URL % encoding issues
 const PAGE_SIZE = 100;
 
 const sha = (s) => createHash("sha256").update(String(s)).digest();
