@@ -92,7 +92,87 @@
     updatePendingBanner();
     buildPresenceWidget();
     installSupabaseSync();
+    applyRoleTabRestrictions();
     loadThenStart();
+  }
+
+  // Enforces ROLE_TAB_ACCESS (config.js) on the sidebar rendered by the compiled app bundle.
+  // The bundle itself has no notion of roles, so this works purely from the outside:
+  //   1. Injects CSS that hides the sidebar buttons for tabs the role isn't allowed to see.
+  //   2. Hides known cross-navigation shortcuts (e.g. the header's "New Daily Entry" button)
+  //      that jump straight into a hidden tab, bypassing the sidebar.
+  //   3. Watches the page (MutationObserver) for the rare case some other in-app link still
+  //      lands the user on a hidden tab, and immediately bounces them back to the first
+  //      allowed tab so the hidden content is never left on screen.
+  // Note: this is a UI-level restriction only. It controls what a limited account SEES;
+  // it does not by itself restrict what the /api/data endpoint returns to that passcode.
+  function applyRoleTabRestrictions() {
+    var user = resolveCurrentUser();
+    var role = user && user.role;
+    if (!role || typeof ROLE_TAB_ACCESS === "undefined" || !ROLE_TAB_ACCESS[role]) return; // full/unlisted role: no restriction
+    var allowed = ROLE_TAB_ACCESS[role];
+
+    // Tab id -> the exact header title the bundle shows for that tab (used to detect a leak).
+    var TAB_TITLES = {
+      overview: "Executive Overview & Operations Matrix",
+      daily: "Daily EOD Matrix Entry & Verification",
+      monthly: "Monthly Variance & Trend Breakdown",
+      tracker: "Remediation Action Items & Audit Tracker",
+      staff: "Personnel Monitoring & Risk Classification",
+      records: "Historical EOD Records Audit Log",
+      settings: "Master Data & Operational Settings"
+    };
+    var fallbackTabId = allowed[0] || "overview";
+    var blockedTitles = {};
+    Object.keys(TAB_TITLES).forEach(function (id) {
+      if (allowed.indexOf(id) === -1) blockedTitles[TAB_TITLES[id]] = true;
+    });
+
+    // 1) Hide the sidebar buttons for blocked tabs.
+    var css = "";
+    Object.keys(TAB_TITLES).forEach(function (id) {
+      if (allowed.indexOf(id) === -1) css += "#nav-tab-" + id + "{display:none !important;}\n";
+    });
+    var style = document.createElement("style");
+    style.id = "role-tab-restrictions";
+    style.textContent = css;
+    document.head.appendChild(style);
+
+    // 2) Hide known shortcut buttons that skip the sidebar entirely and jump into a blocked tab.
+    //    ("New Daily Entry" lives in the header on every tab; "Audit" is the Overview page's
+    //    "Top Variance Branch" card button — both jump straight into the Daily EOD Matrix tab.)
+    var SHORTCUT_TEXTS = ["New Daily Entry", "Audit"];
+
+    function sweepShortcuts() {
+      SHORTCUT_TEXTS.forEach(function (txt) {
+        document.querySelectorAll("button").forEach(function (btn) {
+          if (btn.textContent && btn.textContent.trim() === txt) btn.style.display = "none";
+        });
+      });
+    }
+
+    // 3) Safety net: if the visible page title matches a blocked tab, hide the content instantly
+    // and click back to an allowed tab.
+    function enforceActiveTab() {
+      var h1 = document.querySelector("#main-app-header h1");
+      var main = document.querySelector("main");
+      if (h1 && blockedTitles[h1.textContent.trim()]) {
+        if (main) main.style.visibility = "hidden";
+        var fallbackBtn = document.getElementById("nav-tab-" + fallbackTabId);
+        if (fallbackBtn) fallbackBtn.click();
+      } else if (main) {
+        main.style.visibility = "";
+      }
+    }
+
+    function sweep() {
+      sweepShortcuts();
+      enforceActiveTab();
+    }
+
+    var observer = new MutationObserver(sweep);
+    observer.observe(document.body, { childList: true, subtree: true });
+    sweep();
   }
 
   var currentUser = null; // {slug, name}
