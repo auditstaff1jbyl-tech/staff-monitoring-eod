@@ -246,9 +246,13 @@
   function buildPresenceWidget() {
     ensureChromeStyles();
     currentUser = resolveCurrentUser();
+
+    // The pill group itself: no fixed positioning here anymore — it docks into the
+    // header's own flex row (see tryDock below) so it reads as one instrument panel
+    // instead of a strip floating loose over the page.
     var bar = document.createElement("div");
-    bar.style.cssText = "position:fixed;top:80px;right:14px;z-index:99999;display:flex;gap:8px;font-family:'Plus Jakarta Sans',-apple-system,Segoe UI,Roboto,sans-serif;";
-    document.body.appendChild(bar);
+    bar.id = "gmPresenceGroup";
+    bar.style.cssText = "display:flex;align-items:center;flex-wrap:wrap;gap:6px;font-family:'Plus Jakarta Sans',-apple-system,Segoe UI,Roboto,sans-serif;";
 
     var pillEls = {};
     USER_DIRECTORY.forEach(function (u) {
@@ -263,6 +267,42 @@
       bar.appendChild(pill);
       pillEls[u.slug] = dot;
     });
+
+    // Dock the pills inside the compiled app's header (#main-app-header) once React
+    // mounts it, appended into the header's right-hand content row so it sits next to
+    // "Total Records" etc. as part of the same panel. The header doesn't exist yet at
+    // this point (the bundle loads later, see startApp), so we watch for it. If it
+    // somehow never appears, fall back to a small self-contained floating card instead
+    // of a bare row of pills, so it still looks intentional rather than a stray strip.
+    var docked = false;
+    function tryDock() {
+      if (docked) return true;
+      var header = document.getElementById("main-app-header");
+      if (!header) return false;
+      var rightSide = header.lastElementChild || header;
+      rightSide.style.flexWrap = "wrap";
+      rightSide.style.rowGap = "8px";
+      rightSide.appendChild(bar);
+      docked = true;
+      return true;
+    }
+
+    if (!tryDock()) {
+      var dockObserver = new MutationObserver(function () {
+        if (tryDock()) dockObserver.disconnect();
+      });
+      dockObserver.observe(document.body, { childList: true, subtree: true });
+
+      setTimeout(function () {
+        if (docked) return;
+        dockObserver.disconnect();
+        bar.style.cssText +=
+          "position:fixed;top:14px;right:14px;z-index:99999;padding:8px;border-radius:16px;" +
+          "background:rgba(250,247,242,.92);backdrop-filter:blur(6px);box-shadow:0 10px 30px -10px rgba(0,0,0,.28);border:1px solid #EAE3D5;";
+        document.body.appendChild(bar);
+        docked = true;
+      }, 6000);
+    }
 
     function sendHeartbeat() {
       if (!currentUser) return;
