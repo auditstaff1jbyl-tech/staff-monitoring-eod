@@ -89,6 +89,17 @@
       ".gm-pill{display:flex;align-items:center;gap:7px;padding:6px 13px;border-radius:20px;background:rgba(250,247,242,.92);backdrop-filter:blur(6px);box-shadow:0 6px 16px -4px rgba(0,0,0,.18);font-family:'Plus Jakarta Sans',sans-serif;font-size:11.5px;font-weight:600;color:#2C2A29;border:1px solid #EAE3D5;transition:box-shadow .2s}" +
       ".gm-dot{width:7px;height:7px;border-radius:50%;background:#C9C2B4;display:inline-block;transition:background .35s,box-shadow .35s}" +
       ".gm-dot.gm-online{box-shadow:0 0 0 3px rgba(47,174,102,.18)}" +
+      /* Avatar-stack presence UI (Google Docs / Figma / Notion style): overlapping circular
+         initials instead of full name pills — compact, reads as one unit, name shows on hover. */
+      ".gm-avatar-stack{display:flex;align-items:center;}" +
+      ".gm-avatar{position:relative;width:29px;height:29px;border-radius:50%;background:linear-gradient(145deg,#D9BA7C,#A9853F);color:#2C2110;display:flex;align-items:center;justify-content:center;font-family:'Cinzel',serif;font-weight:700;font-size:10.5px;letter-spacing:.02em;border:2px solid #FAF7F2;box-shadow:0 2px 6px rgba(0,0,0,.16);margin-left:-9px;cursor:default;transition:transform .15s ease;}" +
+      ".gm-avatar:first-child{margin-left:0;}" +
+      ".gm-avatar:hover{transform:translateY(-3px);z-index:5;}" +
+      ".gm-avatar-you{border-color:#C5A059;box-shadow:0 0 0 2px rgba(197,160,89,.35),0 2px 6px rgba(0,0,0,.16);}" +
+      ".gm-avatar-dot{position:absolute;bottom:-1px;right:-1px;width:9px;height:9px;border-radius:50%;background:#C9C2B4;border:2px solid #FAF7F2;transition:background .35s;}" +
+      ".gm-avatar-dot.gm-online{background:#2FAE66;}" +
+      ".gm-avatar[data-tooltip]:hover::after{content:attr(data-tooltip);position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:#2C2A29;color:#F5EFE2;font-family:'Plus Jakarta Sans',sans-serif;font-size:10.5px;font-weight:600;padding:4px 9px;border-radius:6px;white-space:nowrap;box-shadow:0 6px 14px -4px rgba(0,0,0,.35);pointer-events:none;z-index:6;}" +
+      ".gm-avatar[data-tooltip]:hover::before{content:'';position:absolute;bottom:calc(100% + 3px);left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:#2C2A29;pointer-events:none;z-index:6;}" +
       ".gm-badge{position:fixed;z-index:99999;font-family:'Plus Jakarta Sans',sans-serif;font-size:11.5px;font-weight:700;padding:7px 14px;border-radius:20px;box-shadow:0 8px 20px -6px rgba(0,0,0,.22);display:none;align-items:center;gap:7px;transition:opacity .3s,transform .3s}";
     var style = document.createElement("style");
     style.id = GM_STYLE_ID;
@@ -247,24 +258,36 @@
     ensureChromeStyles();
     currentUser = resolveCurrentUser();
 
-    // The pill group itself: no fixed positioning here anymore — it docks into the
-    // header's own flex row (see tryDock below) so it reads as one instrument panel
-    // instead of a strip floating loose over the page.
+    // The avatar-stack group itself: no fixed positioning here anymore — it docks into
+    // the header's own flex row (see tryDock below) so it reads as one instrument panel
+    // instead of a strip floating loose over the page. Style follows the same pattern
+    // as Google Docs / Figma / Notion "who's online": compact overlapping circles with
+    // initials, an online-status dot, and the full name on hover — not full-width pills.
     var bar = document.createElement("div");
     bar.id = "gmPresenceGroup";
-    bar.style.cssText = "display:flex;align-items:center;flex-wrap:wrap;gap:6px;font-family:'Plus Jakarta Sans',-apple-system,Segoe UI,Roboto,sans-serif;";
+    bar.className = "gm-avatar-stack";
+    bar.style.cssText = "font-family:'Plus Jakarta Sans',-apple-system,Segoe UI,Roboto,sans-serif;";
+
+    function initialsFor(name) {
+      var parts = name.trim().split(/\s+/);
+      if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+      var first = parts[0].charAt(0);
+      var last = parts[parts.length - 1];
+      var lastPart = /^[0-9]+$/.test(last) ? last : last.charAt(0);
+      return (first + lastPart).toUpperCase();
+    }
 
     var pillEls = {};
     USER_DIRECTORY.forEach(function (u) {
-      var pill = document.createElement("div");
-      pill.className = "gm-pill";
+      var isYou = currentUser && currentUser.slug === u.slug;
+      var avatar = document.createElement("div");
+      avatar.className = "gm-avatar" + (isYou ? " gm-avatar-you" : "");
+      avatar.setAttribute("data-tooltip", u.name + (isYou ? " (you)" : ""));
+      avatar.textContent = initialsFor(u.name);
       var dot = document.createElement("span");
-      dot.className = "gm-dot";
-      var label = document.createElement("span");
-      label.textContent = u.name + (currentUser && currentUser.slug === u.slug ? " (you)" : "");
-      pill.appendChild(dot);
-      pill.appendChild(label);
-      bar.appendChild(pill);
+      dot.className = "gm-avatar-dot";
+      avatar.appendChild(dot);
+      bar.appendChild(avatar);
       pillEls[u.slug] = dot;
     });
 
