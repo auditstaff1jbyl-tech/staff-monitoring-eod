@@ -6,6 +6,25 @@
    a click handler or a data flow.
    ============================================================ */
 
+/* ---- App-wide: bring the app's OWN "animate-fade-in" / "animate-shake" classes to
+   life. The bundle already applies these two classes on every tab container and on
+   success/duplicate banners, but no keyframes were ever shipped for them, so they were
+   silent no-ops everywhere in the app. Defining them here activates smooth tab-switch
+   transitions and a proper shake on every screen that already asks for it — free,
+   app-wide polish from code the app already has. ---- */
+@keyframes dpFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes dpShake {
+  10%, 90% { transform: translateX(-1px); }
+  20%, 80% { transform: translateX(2px); }
+  30%, 50%, 70% { transform: translateX(-4px); }
+  40%, 60% { transform: translateX(4px); }
+}
+.animate-fade-in { animation: dpFadeIn .35s ease-out both; }
+.animate-shake { animation: dpShake .4s; }
+
 /* ---- KPI cards: staggered entrance + hover lift ---- */
 @keyframes dpRise {
   from { opacity: 0; transform: translateY(10px); }
@@ -111,11 +130,65 @@ button[id^="btn-"]:not([disabled]):active {
   transform: translateY(0);
 }
 
+/* ---- Daily EOD Matrix Entry form ---- */
+#eod-matrix-entry-form {
+  transition: box-shadow .25s ease;
+}
+#eod-matrix-entry-form:focus-within {
+  box-shadow: 0 18px 40px -20px rgba(44,42,41,.28);
+}
+
+/* Department category toggle (Finished Goods / Raw Materials) */
+#eod-matrix-entry-form [class*="grid-cols-2"] > button[class*="rounded-xl"] {
+  transition: transform .14s ease, box-shadow .14s ease;
+}
+#eod-matrix-entry-form [class*="grid-cols-2"] > button[class*="rounded-xl"]:hover {
+  transform: translateY(-1px);
+}
+
+/* Each dynamic item row (product line) — gold highlight + lift on hover so rows feel
+   distinct and editable, not like static table cells */
+#eod-matrix-entry-form [class*="sm:grid-cols-12"] {
+  transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+#eod-matrix-entry-form [class*="sm:grid-cols-12"]:hover {
+  border-color: #DCCBA0;
+  box-shadow: 0 10px 22px -14px rgba(44,42,41,.2);
+}
+
+/* Text/number inputs everywhere in the form: gentle lift on focus, on top of the
+   existing gold ring, so the active field reads as physically raised */
+#eod-matrix-entry-form input:focus,
+#eod-matrix-entry-form select:focus {
+  transform: translateY(-1px);
+}
+#eod-matrix-entry-form input,
+#eod-matrix-entry-form select {
+  transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+}
+
+/* Add-row button: consistent lift with the rest of the app's buttons */
+#btn-add-item-row:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px -8px rgba(44,42,41,.25);
+}
+#btn-add-item-row {
+  transition: transform .14s ease, box-shadow .14s ease, background-color .14s ease;
+}
+
+/* Primary submit: a touch more presence so it reads as the one clear next action */
+#btn-save-eod-record:hover {
+  box-shadow: 0 10px 22px -10px rgba(0,0,0,.45);
+}
+
 /* ---- Respect users who prefer reduced motion ---- */
 @media (prefers-reduced-motion: reduce) {
   #overview-kpi-grid > div,
   #sidebar-nav button[id^="nav-tab-"],
   #sidebar-nav button[id^="nav-tab-"] svg,
+  .animate-fade-in,
+  .animate-shake,
+  #eod-matrix-entry-form *,
   button {
     animation: none !important;
     transition: none !important;
