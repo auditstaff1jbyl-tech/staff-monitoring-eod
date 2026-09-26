@@ -181,6 +181,65 @@ button[id^="btn-"]:not([disabled]):active {
   box-shadow: 0 10px 22px -10px rgba(0,0,0,.45);
 }
 
+/* ---- Monthly Breakdown tab ---- */
+#select-month-dropdown,
+#select-branch-filter-dropdown {
+  transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+}
+#select-month-dropdown:focus,
+#select-branch-filter-dropdown:focus {
+  transform: translateY(-1px);
+}
+
+/* Export PDF: primary gold action gets real weight + a working-state pulse while
+   the button's own text says "Generating PDF..." */
+#btn-export-monthly-pdf {
+  transition: transform .14s ease, box-shadow .14s ease;
+}
+#btn-export-monthly-pdf:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px -10px rgba(197,160,89,.55);
+}
+#btn-export-monthly-pdf:disabled {
+  animation: dpPulseSoft 1.4s ease-in-out infinite;
+}
+@keyframes dpPulseSoft { 0%,100% { opacity: 1; } 50% { opacity: .72; } }
+
+/* Error ranking hub: same elevated-card language as the Overview insight cards */
+#monthly-error-ranking-hub {
+  transition: box-shadow .2s ease;
+}
+#monthly-error-ranking-hub:hover {
+  box-shadow: 0 16px 34px -18px rgba(44,42,41,.2);
+}
+/* Its Side-by-Side / Branches / Staff segmented toggle */
+#monthly-error-ranking-hub button[class*="rounded-lg"][class*="font-bold"] {
+  transition: transform .12s ease;
+}
+#monthly-error-ranking-hub button[class*="rounded-lg"][class*="font-bold"]:hover {
+  transform: translateY(-1px);
+}
+
+/* Branch drill-down modal: a proper pop-in instead of the flat fade it inherits from
+   the app-wide animate-fade-in fix above */
+#branch-drilldown-modal-overlay {
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+#branch-drilldown-modal-card {
+  animation: dpModalPop .28s cubic-bezier(.16,1,.3,1) both !important;
+}
+@keyframes dpModalPop {
+  from { opacity: 0; transform: translateY(10px) scale(.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+#btn-close-drilldown {
+  transition: transform .14s ease, background-color .14s ease;
+}
+#btn-close-drilldown:hover {
+  transform: rotate(90deg);
+}
+
 /* ---- Respect users who prefer reduced motion ---- */
 @media (prefers-reduced-motion: reduce) {
   #overview-kpi-grid > div,
@@ -189,6 +248,9 @@ button[id^="btn-"]:not([disabled]):active {
   .animate-fade-in,
   .animate-shake,
   #eod-matrix-entry-form *,
+  #btn-export-monthly-pdf,
+  #branch-drilldown-modal-card,
+  #btn-close-drilldown,
   button {
     animation: none !important;
     transition: none !important;
