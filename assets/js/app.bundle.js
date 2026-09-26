@@ -15214,7 +15214,7 @@ const gL = [
                         Er = ct.quantity && ct.quantity > 0 || ct.rawQty && parseFloat(ct.rawQty) > 0;
                     return Pt || Er
                 });
-                if ((_ === "Y" || _ === "R") && lt.length === 0 && Ge.push("Please select at least 1 item and enter a quantity for the variance record."), (lt.length > 0 ? lt : ee).forEach((ct, Pt) => {
+                if (_ === "Y" && lt.length === 0 && Ge.push("Please select at least 1 item and enter a quantity for the variance record."), (lt.length > 0 ? lt : ee).forEach((ct, Pt) => {
                         if (!ct.itemName && ct.itemId) {
                             const Er = r.find(rA => rA.id === ct.itemId);
                             Er && (ct.itemName = Er.name)
