@@ -56,6 +56,43 @@ build step) would require either the original unminified source (if it still exi
 anywhere) or a scoped rewrite of the UI in a framework like React/Vite. Happy to help with
 either as a next phase.
 
+## Role-based limited accounts (added)
+
+There is no per-user login system — access is still by shared passcode — but each
+passcode *slot* (its position in the comma-separated `APP_PASSCODES` env var) can now
+be tagged with a `role` in `assets/js/config.js`, which controls which sidebar tabs
+that passcode's user sees.
+
+- `USER_DIRECTORY[i].role` — `"full"` (or omitted) sees every tab, unchanged.
+  `"limited"` only sees the tabs listed for it in `ROLE_TAB_ACCESS`.
+- `ROLE_TAB_ACCESS` — maps a role name to the array of allowed tab ids. Tab ids are:
+  `overview`, `daily`, `monthly`, `tracker`, `staff`, `records`, `settings`.
+- A new **3rd passcode slot** (`limitedviewer`, role `limited`, allowed:
+  `overview`, `monthly`, `tracker`) was added. To activate it, add a 3rd comma-separated
+  value to the Vercel `APP_PASSCODES` env var (order matters — it must be the 3rd value
+  to match index 2 in `USER_DIRECTORY`):
+  ```
+  APP_PASSCODES=existingcode1,existingcode2,yourNewLimitedPasscode
+  ```
+
+**How it works:** the server (`api/data.js`) already returns which passcode *slot*
+matched (`index`) on `verify=1`. The client stores that index, looks up the matching
+`USER_DIRECTORY` entry (and its `role`) in `app-bootstrap.js`, and — right when the app
+launches — injects a small `<style>` block that hides the sidebar buttons for any tab
+id not in that role's allowed list (the bundle already renders each tab button with a
+predictable id, `nav-tab-<tabId>`, so plain CSS `display:none` is enough; no bundle
+edits needed).
+
+**Important limitation:** this hides tabs in the UI only. It does **not** stop the
+`limited` passcode from calling `/api/data` directly (e.g. via DevTools) to read or
+write records belonging to hidden features — `api/data.js` still authorizes by
+passcode only, not by role. Treat this as a UX/UI restriction for normal use, not a
+security boundary. If the limited account must be *hard-blocked* from touching
+data outside its allowed tabs (recommended for anything audit/disciplinary-related),
+the next step is to also check `role` server-side in `api/data.js` (e.g. reject
+POST/DELETE on `eod_matrix_*` keys tied to staff/disciplinary/settings data when the
+matched passcode's role is `limited`). Happy to add that hardening pass on request.
+
 ## Local development
 
 ```bash
