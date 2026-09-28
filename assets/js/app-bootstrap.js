@@ -834,16 +834,36 @@
     });
   }
 
-  // Floating "Reload data" button. It restarts the page, but because the passcode
-  // survives in sessionStorage (see unlockFromSession), the user stays logged in.
+  // "Reload" button docked in the header, right next to the "Executive Audit Active" badge.
+  // It restarts the page, but because the passcode survives in sessionStorage
+  // (see unlockFromSession), the user stays logged in.
+  // The button copies the badge's own CSS classes, so it matches the badge's look exactly.
+  var REFRESH_ICON = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>';
+
   function buildReloadButton() {
     ensureChromeStyles();
     var btn = document.createElement("button");
     btn.id = "gmReloadBtn";
     btn.type = "button";
-    btn.className = "gm-pill";
-    btn.style.cssText = "position:fixed;right:14px;bottom:16px;z-index:99998;cursor:pointer;";
-    btn.innerHTML = "<span>&#8635;</span><span>Reload data</span>";
+    btn.title = "Reload the latest data (you stay logged in)";
+    btn.innerHTML = REFRESH_ICON + "<span>Reload</span>";
+
+    // Fallback look (used only if the badge cannot be found and we float bottom-right).
+    function styleFallback() {
+      btn.className = "gm-pill";
+      btn.style.cssText = "position:fixed;right:14px;bottom:16px;z-index:99998;cursor:pointer;";
+    }
+    // Docked look: same classes as the badge, plus button-specific touches.
+    function styleDocked(badge) {
+      btn.className = badge.className;
+      var cs = window.getComputedStyle(badge);
+      btn.style.cssText =
+        "cursor:pointer;flex:none;white-space:nowrap;margin-left:" + cs.marginLeft + ";" +
+        "display:inline-flex;align-items:center;gap:6px;transition:transform .15s,box-shadow .15s,filter .15s;";
+    }
+
+    btn.addEventListener("mouseenter", function () { if (!btn.disabled) btn.style.filter = "brightness(.96)"; });
+    btn.addEventListener("mouseleave", function () { btn.style.filter = ""; });
     btn.addEventListener("click", function () {
       // Never reload while a change is still unconfirmed by the cloud.
       if (pendingTracker.list().length > 0) {
@@ -851,10 +871,49 @@
         return;
       }
       btn.disabled = true;
-      btn.innerHTML = '<span class="gm-spinner" style="border-color:rgba(44,42,41,.25);border-top-color:#2C2A29;"></span><span>Reloading&hellip;</span>';
+      btn.style.cursor = "default";
+      btn.innerHTML = '<span class="gm-spinner" style="width:11px;height:11px;border-color:rgba(138,106,31,.3);border-top-color:#8A6A1F;"></span><span>Reloading&hellip;</span>';
       window.location.reload();
     });
-    document.body.appendChild(btn);
+
+    // Finds the "Executive Audit Active" badge inside the header (outermost element with that text).
+    function findAuditBadge() {
+      var header = document.getElementById("main-app-header");
+      if (!header) return null;
+      var all = header.querySelectorAll("*");
+      for (var i = 0; i < all.length; i++) {
+        var txt = (all[i].textContent || "").replace(/\s+/g, " ").trim().toLowerCase();
+        if (txt === "executive audit active" && all[i] !== btn) return all[i];
+      }
+      return null;
+    }
+
+    var startedAt = Date.now();
+    function dock() {
+      var badge = findAuditBadge();
+      if (badge) {
+        // Already sitting right after the badge? nothing to do.
+        if (btn.isConnected && btn.previousElementSibling === badge) return;
+        styleDocked(badge);
+        badge.insertAdjacentElement("afterend", btn);
+        return;
+      }
+      // Badge not on screen (yet). After a grace period, float so the button is never lost.
+      if (!btn.isConnected && Date.now() - startedAt > 6000) {
+        styleFallback();
+        document.body.appendChild(btn);
+      }
+    }
+
+    var scheduled = false;
+    function scheduleDock() {
+      if (scheduled) return;
+      scheduled = true;
+      (window.requestAnimationFrame || setTimeout)(function () { scheduled = false; dock(); });
+    }
+    new MutationObserver(scheduleDock).observe(document.body, { childList: true, subtree: true });
+    setTimeout(scheduleDock, 6100); // trigger the fallback check even if the page goes quiet
+    dock();
   }
 
   // If this tab already has a passcode, verify it with the server and skip the gate.
