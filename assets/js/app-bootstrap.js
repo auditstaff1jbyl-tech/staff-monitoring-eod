@@ -849,19 +849,45 @@
     btn.title = "Reload the latest data (you stay logged in)";
     btn.innerHTML = REFRESH_ICON + "<span>Reload</span>";
 
+    // Log out button (sits right after Reload). Clears only this tab's session keys.
+    var LOGOUT_ICON = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>';
+    var outBtn = document.createElement("button");
+    outBtn.id = "gmLogoutBtn";
+    outBtn.type = "button";
+    outBtn.title = "Log out of this session";
+    outBtn.innerHTML = LOGOUT_ICON + "<span>Log out</span>";
+
     // Fallback look (used only if the badge cannot be found and we float bottom-right).
-    function styleFallback() {
-      btn.className = "gm-pill";
-      btn.style.cssText = "position:fixed;right:14px;bottom:16px;z-index:99998;cursor:pointer;";
+    function styleFallback(el, bottomPx) {
+      el.className = "gm-pill";
+      el.style.cssText = "position:fixed;right:14px;bottom:" + bottomPx + "px;z-index:99998;cursor:pointer;";
     }
     // Docked look: same classes as the badge, plus button-specific touches.
-    function styleDocked(badge) {
-      btn.className = badge.className;
+    function styleDocked(badge, el) {
+      el.className = badge.className;
       var cs = window.getComputedStyle(badge);
-      btn.style.cssText =
+      el.style.cssText =
         "cursor:pointer;flex:none;white-space:nowrap;margin-left:" + cs.marginLeft + ";" +
-        "display:inline-flex;align-items:center;gap:6px;transition:transform .15s,box-shadow .15s,filter .15s;";
+        "display:inline-flex;align-items:center;gap:6px;transition:transform .15s,box-shadow .15s,filter .15s;" +
+        (el === outBtn ? "color:#B53D43;border-color:rgba(181,61,67,.35);background:#FCEDED;" : "");
     }
+
+    outBtn.addEventListener("mouseenter", function () { outBtn.style.filter = "brightness(.96)"; });
+    outBtn.addEventListener("mouseleave", function () { outBtn.style.filter = ""; });
+    outBtn.addEventListener("click", function () {
+      // Never log out while a change is still unconfirmed by the cloud (it would be at risk).
+      if (pendingTracker.list().length > 0) {
+        window.alert("There are still unsaved changes. Please wait until the badge shows \"Saved to cloud\", then log out.");
+        return;
+      }
+      if (!window.confirm("Log out of this session?")) return;
+      // Only this tab's login is cleared. Data keys are deliberately NOT touched: removing them
+      // through the app's own storage layer would be synced to the cloud as deletions.
+      try { sessionStorage.removeItem(API_PASSCODE_KEY); } catch (e) {}
+      try { sessionStorage.removeItem(USER_IDX_KEY); } catch (e) {}
+      outBtn.disabled = true;
+      window.location.reload();
+    });
 
     btn.addEventListener("mouseenter", function () { if (!btn.disabled) btn.style.filter = "brightness(.96)"; });
     btn.addEventListener("mouseleave", function () { btn.style.filter = ""; });
@@ -893,16 +919,21 @@
     function dock() {
       var badge = findAuditBadge();
       if (badge) {
-        // Already sitting right after the badge? nothing to do.
-        if (btn.isConnected && btn.previousElementSibling === badge) return;
-        styleDocked(badge);
-        badge.insertAdjacentElement("afterend", btn);
+        // Order in the header: badge, Reload, Log out. Re-dock only when out of place.
+        if (!(btn.isConnected && btn.previousElementSibling === badge)) {
+          styleDocked(badge, btn);
+          badge.insertAdjacentElement("afterend", btn);
+        }
+        if (!(outBtn.isConnected && outBtn.previousElementSibling === btn)) {
+          styleDocked(badge, outBtn);
+          btn.insertAdjacentElement("afterend", outBtn);
+        }
         return;
       }
-      // Badge not on screen (yet). After a grace period, float so the button is never lost.
-      if (!btn.isConnected && Date.now() - startedAt > 6000) {
-        styleFallback();
-        document.body.appendChild(btn);
+      // Badge not on screen (yet). After a grace period, float so the buttons are never lost.
+      if (Date.now() - startedAt > 6000) {
+        if (!btn.isConnected) { styleFallback(btn, 16); document.body.appendChild(btn); }
+        if (!outBtn.isConnected) { styleFallback(outBtn, 54); document.body.appendChild(outBtn); }
       }
     }
 
