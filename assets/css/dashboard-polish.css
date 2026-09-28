@@ -256,3 +256,36 @@ button[id^="btn-"]:not([disabled]):active {
     transition: none !important;
   }
 }
+
+/* ============================================================
+   Passcode gate — bakery photo background
+   (:has(#gateForm) targets the login gate only, not the
+   "Could not load your data" overlay that shares .gm-overlay)
+   Image lives at /assets/login-bg.jpg
+   ============================================================ */
+.gm-overlay:has(#gateForm) {
+  background:
+    radial-gradient(circle at 50% 45%, rgba(20,12,4,.08), rgba(20,12,4,.55) 100%),
+    linear-gradient(rgba(20,12,4,.30), rgba(20,12,4,.30)),
+    url("../login-bg.jpg") center / cover no-repeat #15130F;
+}
+.gm-overlay:has(#gateForm) .gm-orb { display: none; }
+
+#gateForm.gm-card {
+  width: 420px;
+  padding: 40px 36px 30px;
+  border-radius: 22px;
+  background: rgba(247,245,240,.94);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 30px 80px -20px rgba(0,0,0,.6), 0 0 0 1px rgba(197,160,89,.18);
+}
+#gateForm .gm-logo  { width: 60px; height: 60px; font-size: 14px; }
+#gateForm .gm-title { font-size: 20px; }
+#gateForm .gm-input { height: 48px; padding-top: 0; padding-bottom: 0; }
+#gateForm .gm-btn   { height: 48px; padding-top: 0; padding-bottom: 0; }
+
+@media (max-width: 480px) {
+  #gateForm.gm-card { padding: 32px 22px 24px; }
+  #gateForm .gm-title { font-size: 17px; }
+}
