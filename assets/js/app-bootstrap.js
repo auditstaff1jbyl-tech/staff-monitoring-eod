@@ -165,6 +165,7 @@
     updatePendingBanner();
     buildPresenceWidget();
     buildReloadButton();
+    installBackupRelocation();
     installSupabaseSync();
     applyRoleTabRestrictions();
     loadThenStart();
@@ -931,6 +932,137 @@
         showGate();
       }
     });
+  }
+
+  // ---- Move "Master Data Controls" from the sidebar into Settings -> Data Backup & Sync ----
+  // Export / Import already exist in that tab. This adds the missing "Backup to Cloud" button
+  // there and hides the sidebar section. The ORIGINAL sidebar button is only hidden (never
+  // removed), and the new button simply clicks it, so the backup logic is untouched.
+  function installBackupRelocation() {
+    // Accounts that cannot open Settings keep the sidebar buttons (otherwise they'd lose access).
+    var user = resolveCurrentUser();
+    var role = user && user.role;
+    if (role && typeof ROLE_TAB_ACCESS !== "undefined" && ROLE_TAB_ACCESS[role] &&
+        ROLE_TAB_ACCESS[role].indexOf("settings") === -1) return;
+
+    var HIDE_ATTR = "data-gm-hidden";
+    var CARD_ID = "gmCloudBackupCard";
+    var st = document.createElement("style");
+    st.textContent = "[" + HIDE_ATTR + "]{display:none !important;}";
+    document.head.appendChild(st);
+
+    function norm(el) { return (el.textContent || "").replace(/\s+/g, " ").trim().toLowerCase(); }
+
+    function findSidebarCloudButton() {
+      var btns = document.querySelectorAll("button");
+      for (var i = 0; i < btns.length; i++) {
+        if (norm(btns[i]) === "backup to cloud" && !btns[i].closest("#" + CARD_ID)) return btns[i];
+      }
+      return null;
+    }
+
+    // 1) Hide the sidebar "MASTER DATA CONTROLS" section.
+    function hideSidebarControls() {
+      if (document.querySelector("[" + HIDE_ATTR + "]")) return;
+      var navBtn = document.getElementById("nav-tab-overview");
+      if (!navBtn) return;
+      var sidebar = navBtn.closest("aside");
+      if (!sidebar) {
+        sidebar = navBtn.parentElement;
+        for (var up = 0; up < 6 && sidebar && norm(sidebar).indexOf("master data controls") === -1; up++) sidebar = sidebar.parentElement;
+      }
+      if (!sidebar) return;
+      var all = sidebar.querySelectorAll("*");
+      var heading = null;
+      for (var i = 0; i < all.length; i++) {
+        if (norm(all[i]) === "master data controls") { heading = all[i]; break; }
+      }
+      if (!heading) return;
+      var group = heading.parentElement;
+      var t = norm(group || heading);
+      var groupOk = group && !group.contains(navBtn) &&
+        t.indexOf("backup to cloud") !== -1 && t.indexOf("import restore") !== -1 && t.indexOf("export backup") !== -1;
+      if (groupOk) {
+        group.setAttribute(HIDE_ATTR, "1");
+      } else {
+        // Fallback: hide the heading and the three buttons one by one.
+        heading.setAttribute(HIDE_ATTR, "1");
+        sidebar.querySelectorAll("button").forEach(function (b) {
+          var n = norm(b);
+          if (n === "backup to cloud" || n === "import restore" || n.indexOf("export backup") === 0) b.setAttribute(HIDE_ATTR, "1");
+        });
+      }
+    }
+
+    // 2) Add the "Backup to Cloud" card in Settings -> Data Backup & Sync.
+    function buildCloudCard() {
+      var card = document.createElement("div");
+      card.id = CARD_ID;
+      card.style.cssText =
+        "margin-top:16px;background:#FAF7F2;border:1px solid #EAE3D5;border-radius:16px;padding:22px 24px;" +
+        "font-family:'Plus Jakarta Sans',-apple-system,Segoe UI,Roboto,sans-serif;color:#2C2A29;";
+      card.innerHTML =
+        '<div style="display:flex;align-items:center;gap:8px;font-family:\'Playfair Display\',serif;font-style:italic;font-weight:700;font-size:16px;margin-bottom:8px;">' +
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A9853F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a4.5 4.5 0 1 0-1.4-8.78A6 6 0 1 0 5 14.5"/><path d="M12 12v8"/><path d="m8.5 15.5 3.5-3.5 3.5 3.5"/></svg>' +
+        '<span>Backup to Cloud</span></div>' +
+        '<div style="font-size:12.5px;color:#6C655B;line-height:1.55;margin-bottom:14px;">Save the current data to the cloud. This runs the same Backup to Cloud action that used to be in the sidebar.</div>';
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.style.cssText =
+        "width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:11px 14px;background:#fff;" +
+        "border:1px solid #C5A059;border-radius:12px;font-size:13px;font-weight:600;color:#2C2A29;cursor:pointer;" +
+        "font-family:inherit;transition:background .15s;";
+      btn.innerHTML =
+        '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>' +
+        "<span>Backup to Cloud</span>";
+      btn.addEventListener("mouseenter", function () { if (!btn.disabled) btn.style.background = "#FBF5E6"; });
+      btn.addEventListener("mouseleave", function () { btn.style.background = "#fff"; });
+      btn.addEventListener("click", function () {
+        var original = findSidebarCloudButton();
+        if (!original) { window.alert("Could not find the Backup to Cloud action. Please reload the page and try again."); return; }
+        original.click();
+        btn.disabled = true;
+        btn.style.opacity = ".7";
+        setTimeout(function () { btn.disabled = false; btn.style.opacity = ""; }, 1500);
+      });
+      card.appendChild(btn);
+      return card;
+    }
+
+    function syncCloudCard() {
+      var existing = document.getElementById(CARD_ID);
+      var heading = null;
+      var main = document.querySelector("main");
+      if (main) {
+        var els = main.querySelectorAll("*");
+        for (var i = 0; i < els.length; i++) {
+          if (els[i].children.length === 0 && norm(els[i]) === "download full json backup") { heading = els[i]; break; }
+          // headings often hold an icon + text, so also accept an element whose text matches exactly
+          if (norm(els[i]) === "download full json backup" && !heading) heading = els[i];
+        }
+      }
+      if (!heading) { if (existing) existing.remove(); return; } // left the Data Backup & Sync tab
+      if (existing) return;
+      // Walk up to the "Download" card, whose parent is the two-card grid.
+      var cardEl = heading;
+      while (cardEl.parentElement && norm(cardEl.parentElement).indexOf("restore database from backup") === -1) cardEl = cardEl.parentElement;
+      var grid = cardEl.parentElement;
+      if (!grid) return;
+      grid.insertAdjacentElement("afterend", buildCloudCard());
+    }
+
+    var scheduled = false;
+    function sync() {
+      hideSidebarControls();
+      syncCloudCard();
+    }
+    function schedule() {
+      if (scheduled) return;
+      scheduled = true;
+      (window.requestAnimationFrame || setTimeout)(function () { scheduled = false; sync(); });
+    }
+    new MutationObserver(schedule).observe(document.body, { childList: true, subtree: true });
+    sync();
   }
 
   document.addEventListener("DOMContentLoaded", unlockFromSession);
