@@ -34,8 +34,7 @@
     s.id = STYLE_ID;
     s.textContent =
       "html.gm-dark img,html.gm-dark video,html.gm-dark canvas{filter:invert(1) hue-rotate(180deg);}" +
-      "html.gm-dark .gm-overlay{filter:invert(1) hue-rotate(180deg);}" +
-      "html.gm-dark{color-scheme:dark;}";
+      "html.gm-dark .gm-overlay{filter:invert(1) hue-rotate(180deg);}";
     document.head.appendChild(s);
   }
 
