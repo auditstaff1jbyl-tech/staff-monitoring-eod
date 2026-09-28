@@ -15099,8 +15099,8 @@ const gL = [
             };
         ve.useEffect(() => {
             if (!v) {
-                if (_ === "G" || _ === "C") ee.length === 0 ? ne([Ee()]) : ee.length > 1 && ne([ee[0]]);
-                else if ((_ === "Y" || _ === "R") && ee.length < 2) {
+                if (_ === "G" || _ === "C" || _ === "R") ee.length === 0 ? ne([Ee()]) : ee.length > 1 && ne([ee[0]]);
+                else if (_ === "Y" && ee.length < 2) {
                     const me = ee[0] || Ee(),
                         Ge = Ee();
                     ne([me, Ge])
@@ -15435,7 +15435,7 @@ const gL = [
                             })
                         }), u.jsxs("p", {
                             className: "text-[10.5px] text-[#6C655B] italic mt-1",
-                            children: [_ === "G" && "Green: Zero variance. 1 item row required.", _ === "Y" && "Yellow: Variance logged. Automatically provides 2 item rows.", _ === "R" && "Red: Critical / No EOD entry. Item rows are optional — you can save without any item.", _ === "C" && "Closed: Branch non-operational."]
+                            children: [_ === "G" && "Green: Zero variance. 1 item row required.", _ === "Y" && "Yellow: Variance logged. Automatically provides 2 item rows.", _ === "R" && "Red: Critical / No EOD entry. Item is optional — you can save without any item.", _ === "C" && "Closed: Branch non-operational."]
                         })]
                     }), u.jsxs("div", {
                         className: "space-y-1.5",
@@ -15491,7 +15491,7 @@ const gL = [
                                 children: u.jsx(Pp, {
                                     id: `item-row-${Ge}`,
                                     label: `Item Row #${Ge+1} Name`,
-                                    required: !0,
+                                    required: _ === "Y",
                                     placeholder: "Type product name (e.g. Pan, Gar, Ens...)",
                                     options: te,
                                     value: me.itemId,
@@ -15502,7 +15502,7 @@ const gL = [
                                 className: "sm:col-span-2 space-y-1",
                                 children: [u.jsx("label", {
                                     className: "text-[10.5px] font-bold text-[#6C655B] uppercase tracking-wider block",
-                                    children: "Quantity *"
+                                    children: _ === "Y" ? "Quantity *" : "Quantity"
                                 }), u.jsx("input", {
                                     type: "text",
                                     inputMode: "decimal",
@@ -15518,7 +15518,7 @@ const gL = [
                                 className: "sm:col-span-2 space-y-1",
                                 children: [u.jsx("label", {
                                     className: "text-[10.5px] font-bold text-[#6C655B] uppercase tracking-wider block",
-                                    children: "Unit Price (₱) *"
+                                    children: _ === "Y" ? "Unit Price (₱) *" : "Unit Price (₱)"
                                 }), u.jsx("input", {
                                     type: "text",
                                     inputMode: "decimal",
