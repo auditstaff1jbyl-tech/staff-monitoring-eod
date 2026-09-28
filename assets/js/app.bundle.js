@@ -15218,7 +15218,7 @@ const gL = [
                         if (!ct.itemName && ct.itemId) {
                             const Er = r.find(rA => rA.id === ct.itemId);
                             Er && (ct.itemName = Er.name)
-                        }(_ === "Y" || _ === "R") && (!ct.itemName && !ct.itemId && Ge.push(`Item name in row #${Pt+1} is required.`), ct.quantity <= 0 && Ge.push(`Quantity for "${ct.itemName||`Row #${Pt+1}`}" must be greater than 0.`)), ct.unitPrice < 0 && Ge.push(`Unit price in row #${Pt+1} cannot be negative.`)
+                        }(_ === "Y" || _ === "R" && lt.length > 0) && (!ct.itemName && !ct.itemId && Ge.push(`Item name in row #${Pt+1} is required.`), ct.quantity <= 0 && Ge.push(`Quantity for "${ct.itemName||`Row #${Pt+1}`}" must be greater than 0.`)), ct.unitPrice < 0 && Ge.push(`Unit price in row #${Pt+1} cannot be negative.`)
                     }), Ge.length > 0) {
                     we(Ge), window.scrollTo({
                         top: 0,
@@ -15229,7 +15229,7 @@ const gL = [
                 we([]);
                 const wt = t.find(ct => ct.id === N),
                     Bt = wt ? wt.name : N,
-                    yt = (lt.length > 0 ? lt : ee).map(ct => {
+                    yt = (lt.length > 0 ? lt : _ === "R" ? [] : ee).map(ct => {
                         const Pt = r.find(Er => Er.id === ct.itemId);
                         return {
                             id: ct.id || `row-${Date.now()}-${Math.random().toString(36).substr(2,4)}`,
@@ -15435,7 +15435,7 @@ const gL = [
                             })
                         }), u.jsxs("p", {
                             className: "text-[10.5px] text-[#6C655B] italic mt-1",
-                            children: [_ === "G" && "Green: Zero variance. 1 item row required.", _ === "Y" && "Yellow: Variance logged. Automatically provides 2 item rows.", _ === "R" && "Red: Critical / No EOD entry. Automatically provides 2 item rows.", _ === "C" && "Closed: Branch non-operational."]
+                            children: [_ === "G" && "Green: Zero variance. 1 item row required.", _ === "Y" && "Yellow: Variance logged. Automatically provides 2 item rows.", _ === "R" && "Red: Critical / No EOD entry. Item rows are optional — you can save without any item.", _ === "C" && "Closed: Branch non-operational."]
                         })]
                     }), u.jsxs("div", {
                         className: "space-y-1.5",
