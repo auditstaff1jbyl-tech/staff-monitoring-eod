@@ -970,11 +970,8 @@
   // there and hides the sidebar section. The ORIGINAL sidebar button is only hidden (never
   // removed), and the new button simply clicks it, so the backup logic is untouched.
   function installBackupRelocation() {
-    // Accounts that cannot open Settings keep the sidebar buttons (otherwise they'd lose access).
-    var user = resolveCurrentUser();
-    var role = user && user.role;
-    if (role && typeof ROLE_TAB_ACCESS !== "undefined" && ROLE_TAB_ACCESS[role] &&
-        ROLE_TAB_ACCESS[role].indexOf("settings") === -1) return;
+    // The sidebar backup controls are hidden for EVERY account. Accounts allowed into Settings
+    // get them there (Data Backup & Sync); limited accounts simply no longer get them at all.
 
     var HIDE_ATTR = "data-gm-hidden";
     var CARD_ID = "gmCloudBackupCard";
