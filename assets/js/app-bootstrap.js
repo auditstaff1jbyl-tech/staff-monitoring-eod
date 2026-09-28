@@ -164,6 +164,7 @@
     buildPendingBanner();
     updatePendingBanner();
     buildPresenceWidget();
+    buildReloadButton();
     installSupabaseSync();
     applyRoleTabRestrictions();
     loadThenStart();
@@ -833,7 +834,45 @@
     });
   }
 
-  document.addEventListener("DOMContentLoaded", function () {
-    showGate();
-  });
+  // Floating "Reload data" button. It restarts the page, but because the passcode
+  // survives in sessionStorage (see unlockFromSession), the user stays logged in.
+  function buildReloadButton() {
+    ensureChromeStyles();
+    var btn = document.createElement("button");
+    btn.id = "gmReloadBtn";
+    btn.type = "button";
+    btn.className = "gm-pill";
+    btn.style.cssText = "position:fixed;right:14px;bottom:16px;z-index:99998;cursor:pointer;";
+    btn.innerHTML = "<span>&#8635;</span><span>Reload data</span>";
+    btn.addEventListener("click", function () {
+      // Never reload while a change is still unconfirmed by the cloud.
+      if (pendingTracker.list().length > 0) {
+        window.alert("There are still unsaved changes. Please wait until the badge shows \"Saved to cloud\", then reload.");
+        return;
+      }
+      btn.disabled = true;
+      btn.innerHTML = '<span class="gm-spinner" style="border-color:rgba(44,42,41,.25);border-top-color:#2C2A29;"></span><span>Reloading&hellip;</span>';
+      window.location.reload();
+    });
+    document.body.appendChild(btn);
+  }
+
+  // If this tab already has a passcode, verify it with the server and skip the gate.
+  // Wrong/expired passcode -> clear it and show the gate. No network -> show the gate
+  // but keep the saved passcode so a later refresh can still work.
+  function unlockFromSession() {
+    var saved = getStoredPasscode();
+    if (!saved) { showGate(); return; }
+    verifyPasscode(saved).then(function (r) {
+      if (r.ok) {
+        if (r.index >= 0) sessionStorage.setItem(USER_IDX_KEY, String(r.index));
+        launchApp();
+      } else {
+        if (r.message === "Incorrect passcode.") sessionStorage.removeItem(API_PASSCODE_KEY);
+        showGate();
+      }
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", unlockFromSession);
 })();
