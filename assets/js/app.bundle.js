@@ -34825,14 +34825,23 @@ function __TxPage({
     records,
     branches
 }) {
-    const isAll = view === "transaction";
-    const types = isAll ? __TX_TYPES : __TX_TYPES.filter(t => "transaction-" + t.id === view);
+    const one = __TX_TYPES.find(t => "transaction-" + t.id === view);
+    const isAll = !one;
+    const types = one ? [one] : __TX_TYPES;
     const [month, setMonth] = ve.useState(Ou().slice(0, 7));
     const [branch, setBranch] = ve.useState("All");
+    const [rankBy, setRankBy] = ve.useState("total");
+    const [hover, setHover] = ve.useState(null);
+    const [sel, setSel] = ve.useState(null);
+    ve.useEffect(() => {
+        setSel(null);
+        setHover(null)
+    }, [view, month, branch]);
+    const rankKey = isAll ? rankBy : one.id;
     const has = v => v !== null && v !== void 0 && v !== "" && isFinite(Number(v));
     const numOf = v => has(v) ? Number(v) : 0;
-    const data = ve.useMemo(() => {
-        const list = (Array.isArray(records) ? records : []).filter(r => r && r.date && (!month || String(r.date).slice(0, 7) === month) && (branch === "All" || r.branch === branch));
+    const agg = mo => {
+        const list = (Array.isArray(records) ? records : []).filter(r => r && r.date && (!mo || String(r.date).slice(0, 7) === mo) && (branch === "All" || r.branch === branch));
         const enc = list.filter(r => __TX_TYPES.some(t => has(r[t.key])));
         const totals = {
             void: 0,
@@ -34855,15 +34864,24 @@ function __TxPage({
                 const o = map[k] || (map[k] = Object.assign({
                     void: 0,
                     refund: 0,
-                    revert: 0
+                    revert: 0,
+                    perDate: {},
+                    encDates: {}
                 }, meta));
+                const pd = o.perDate[r.date] || (o.perDate[r.date] = {
+                    void: 0,
+                    refund: 0,
+                    revert: 0
+                });
                 __TX_TYPES.forEach(t => {
-                    o[t.id] += a[t.id]
-                })
+                    o[t.id] += a[t.id];
+                    pd[t.id] += a[t.id]
+                });
+                o.encDates[r.date] = 1
             };
             add(byDate, r.date, {});
             add(byBranch, r.branch || "—", {});
-            add(byStaff, (r.staffName || "—") + "|" + (r.branch || ""), {
+            add(byStaff, (r.staffId || r.staffName || "—") + "|" + (r.branch || ""), {
                 staffName: r.staffName || "—",
                 branch: r.branch || "—"
             });
@@ -34885,9 +34903,34 @@ function __TxPage({
             byStaff,
             rows
         }
-    }, [records, month, branch]);
+    };
+    const prevMonth = m => {
+        const d = new Date(+m.slice(0, 4), +m.slice(5, 7) - 2, 1);
+        return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0")
+    };
+    const data = ve.useMemo(() => agg(month), [records, month, branch]);
+    const prev = ve.useMemo(() => month ? agg(prevMonth(month)) : null, [records, month, branch]);
     const sumOf = o => types.reduce((s, t) => s + (o[t.id] || 0), 0);
+    // Ranking is ALWAYS by peso amount (never by number of occurrences).
+    const metricOf = o => rankKey === "total" ? sumOf(o) : o[rankKey] || 0;
     const money = v => Qt(v);
+    const buildRank = (map, prevMap) => {
+        const items = Object.keys(map).map(k => ({
+            key: k,
+            o: map[k],
+            m: metricOf(map[k])
+        })).filter(x => x.m > 0);
+        items.sort((a, b) => b.m - a.m || String(a.key).localeCompare(String(b.key)));
+        items.forEach(x => {
+            x.rank = 1 + items.filter(y => y.m > x.m).length;
+            x.days = Object.keys(x.o.perDate).filter(d => metricOf(x.o.perDate[d]) > 0).length;
+            x.encDays = Object.keys(x.o.encDates).length;
+            x.prev = prevMap ? prevMap[x.key] ? metricOf(prevMap[x.key]) : null : void 0
+        });
+        return items
+    };
+    const branchRank = buildRank(data.byBranch, prev && prev.byBranch);
+    const staffRank = buildRank(data.byStaff, prev && prev.byStaff);
     const card = {
         background: "#fff",
         border: "1px solid #EAE3D5",
@@ -34909,6 +34952,7 @@ function __TxPage({
         fontSize: 12,
         color: "#2C2A29"
     };
+    const mono = "'JetBrains Mono',monospace";
     const titles = {
         transaction: ["Transaction", "All exception amounts (Void, Return/Refund, Revert YP) captured from the Daily EOD Matrix."],
         "transaction-void": ["Void", "Voided transaction amounts captured from the Daily EOD Matrix."],
@@ -34917,136 +34961,243 @@ function __TxPage({
     } [view] || ["Transaction", ""];
     const branchNames = (Array.isArray(branches) ? branches : []).map(b => b && b.name).filter(Boolean).sort((a, b) => a.localeCompare(b));
     const viewTotal = sumOf(data.totals);
-    const dates = Object.keys(data.byDate).sort();
-    const shown = dates.slice(-31);
-    const maxDay = Math.max(0, ...shown.map(d => sumOf(data.byDate[d])));
-    const activeDays = shown.filter(d => sumOf(data.byDate[d]) > 0).length;
-    const table = (title, firstCols, items, limit) => u.jsxs("section", {
+    // ---- daily chart data ----
+    const dayList = month ? Array.from({
+        length: new Date(+month.slice(0, 4), +month.slice(5, 7), 0).getDate()
+    }, (_, i) => month + "-" + String(i + 1).padStart(2, "0")) : Object.keys(data.byDate).sort().slice(-62);
+    const dayTot = d => data.byDate[d] ? sumOf(data.byDate[d]) : 0;
+    const maxDay = Math.max(0, ...dayList.map(dayTot));
+    const bestDay = maxDay > 0 ? dayList.find(d => dayTot(d) === maxDay) : null;
+    const activeDays = dayList.filter(d => dayTot(d) > 0).length;
+    const niceMax = m => {
+        if (m <= 0) return 100;
+        const raw = m / 4,
+            p = Math.pow(10, Math.floor(Math.log10(raw))),
+            n = raw / p;
+        return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * p * 4
+    };
+    const top = niceMax(maxDay);
+    const H = 190;
+    const dayName = d => month ? "Day " + Number(d.slice(8)) : is(d);
+    const tipFor = d => {
+        const o = data.byDate[d];
+        if (!o) return dayName(d) + " (" + is(d) + ") • nothing encoded";
+        return dayName(d) + " (" + is(d) + ") • " + (isAll ? types.map(t => t.label + " " + money(o[t.id])).join(" • ") + " • " : "") + "Total " + money(sumOf(o))
+    };
+    // ---- tables ----
+    const th = (c, right) => u.jsx("th", {
+        style: {
+            ...lbl,
+            textAlign: right ? "right" : "left",
+            padding: "10px 14px",
+            whiteSpace: "nowrap"
+        },
+        children: c
+    }, c);
+    const td = (c, opt) => u.jsx("td", {
+        style: {
+            padding: "9px 14px",
+            whiteSpace: "nowrap",
+            ...opt
+        },
+        children: c
+    });
+    const shell = (title, subtitle, action, table) => u.jsxs("section", {
         style: {
             ...card,
             padding: 0,
             overflow: "hidden"
         },
-        children: [u.jsx("div", {
+        children: [u.jsxs("div", {
             style: {
                 padding: "14px 16px",
-                borderBottom: "1px solid #F3EEE4"
+                borderBottom: "1px solid #F3EEE4",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                gap: 8,
+                flexWrap: "wrap"
             },
-            children: u.jsx("h3", {
-                className: "font-serif font-bold text-base text-gray-900 italic",
-                children: title
-            })
+            children: [u.jsxs("div", {
+                children: [u.jsx("h3", {
+                    className: "font-serif font-bold text-base text-gray-900 italic",
+                    children: title
+                }), subtitle && u.jsx("div", {
+                    style: {
+                        fontSize: 11,
+                        color: "#6C655B",
+                        marginTop: 2
+                    },
+                    children: subtitle
+                })]
+            }), action]
         }), u.jsx("div", {
             style: {
                 overflowX: "auto"
             },
-            children: u.jsxs("table", {
-                style: {
-                    width: "100%",
-                    borderCollapse: "collapse",
-                    fontSize: 12
-                },
-                children: [u.jsx("thead", {
-                    children: u.jsxs("tr", {
-                        style: {
-                            background: "#FAF7F2"
-                        },
-                        children: [...firstCols.map(c => u.jsx("th", {
-                            style: {
-                                ...lbl,
-                                textAlign: "left",
-                                padding: "10px 14px",
-                                whiteSpace: "nowrap"
-                            },
-                            children: c
-                        }, c)), ...types.map(t => u.jsx("th", {
-                            style: {
-                                ...lbl,
-                                textAlign: "right",
-                                padding: "10px 14px",
-                                whiteSpace: "nowrap"
-                            },
-                            children: t.label
-                        }, t.id)), isAll && u.jsx("th", {
-                            style: {
-                                ...lbl,
-                                textAlign: "right",
-                                padding: "10px 14px"
-                            },
-                            children: "Total"
-                        })]
-                    })
-                }), u.jsx("tbody", {
-                    children: items.slice(0, limit).map((it, i) => u.jsxs("tr", {
-                        style: {
-                            borderTop: "1px solid #F3EEE4"
-                        },
-                        children: [...it.cells.map((c, j) => u.jsx("td", {
-                            style: {
-                                padding: "9px 14px",
-                                whiteSpace: "nowrap",
-                                fontWeight: j === 0 ? 600 : 400
-                            },
-                            children: c
-                        }, j)), ...types.map(t => u.jsx("td", {
-                            style: {
-                                padding: "9px 14px",
-                                textAlign: "right",
-                                fontFamily: "'JetBrains Mono',monospace",
-                                color: it.e && !it.e[t.id] ? "#B7AF9E" : "#2C2A29"
-                            },
-                            children: it.e && !it.e[t.id] ? "—" : money(it.v[t.id])
-                        }, t.id)), isAll && u.jsx("td", {
-                            style: {
-                                padding: "9px 14px",
-                                textAlign: "right",
-                                fontFamily: "'JetBrains Mono',monospace",
-                                fontWeight: 700
-                            },
-                            children: money(sumOf(it.v))
-                        })]
-                    }, it.key || i))
-                })]
-            })
+            children: table
         })]
     });
-    const branchItems = Object.keys(data.byBranch).map(k => ({
-        key: k,
-        cells: [k],
-        v: data.byBranch[k]
-    })).sort((a, b) => sumOf(b.v) - sumOf(a.v));
-    const staffItems = Object.keys(data.byStaff).map(k => ({
-        key: k,
-        cells: [data.byStaff[k].staffName, data.byStaff[k].branch],
-        v: data.byStaff[k]
-    })).sort((a, b) => sumOf(b.v) - sumOf(a.v));
-    const detailItems = [...data.rows].sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : 0).map(r => ({
-        key: r.id,
-        cells: [is(r.date), r.branch, r.staffName],
-        v: r.a,
-        e: r.e
+    const deltaCell = x => {
+        if (x.prev === void 0 || x.prev === null) return td("—", {
+            color: "#B7AF9E",
+            textAlign: "right"
+        });
+        const d = Math.round((x.m - x.prev) * 100) / 100;
+        if (d === 0) return td("no change", {
+            color: "#6C655B",
+            textAlign: "right"
+        });
+        return td((d > 0 ? "▲ " : "▼ ") + money(Math.abs(d)), {
+            color: d > 0 ? "#B53D43" : "#1C7A42",
+            textAlign: "right",
+            fontWeight: 700
+        })
+    };
+    const rankTable = (title, subtitle, firstCols, items, cellsOf) => shell(title, subtitle, null, u.jsxs("table", {
+        style: {
+            width: "100%",
+            borderCollapse: "collapse",
+            fontSize: 12
+        },
+        children: [u.jsx("thead", {
+            children: u.jsxs("tr", {
+                style: {
+                    background: "#FAF7F2"
+                },
+                children: [th("Rank"), ...firstCols.map(c => th(c)), ...types.map(t => th(t.label, !0)), isAll && th("Total", !0), th("Days with amount", !0), th("Days encoded", !0), month && th("vs prev month", !0)]
+            })
+        }), u.jsx("tbody", {
+            children: items.map(x => u.jsxs("tr", {
+                style: {
+                    borderTop: "1px solid #F3EEE4",
+                    background: x.rank === 1 ? "#FBF5E6" : "transparent"
+                },
+                children: [td(u.jsx("span", {
+                    style: {
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        minWidth: 26,
+                        height: 26,
+                        borderRadius: 13,
+                        padding: "0 6px",
+                        fontWeight: 800,
+                        fontSize: 12,
+                        background: x.rank === 1 ? "linear-gradient(145deg,#D9BA7C,#A9853F)" : "#F3EEE4",
+                        color: x.rank === 1 ? "#2C2110" : "#6C655B"
+                    },
+                    children: x.rank
+                })), ...cellsOf(x).map((c, j) => td(c, {
+                    fontWeight: j === 0 ? 700 : 400
+                })), ...types.map(t => td(money(x.o[t.id]), {
+                    textAlign: "right",
+                    fontFamily: mono,
+                    fontWeight: rankKey === t.id || !isAll ? 800 : 400
+                })), isAll && td(money(sumOf(x.o)), {
+                    textAlign: "right",
+                    fontFamily: mono,
+                    fontWeight: rankKey === "total" ? 800 : 600
+                }), td(String(x.days), {
+                    textAlign: "right",
+                    fontFamily: mono,
+                    color: "#6C655B"
+                }), td(String(x.encDays), {
+                    textAlign: "right",
+                    fontFamily: mono,
+                    color: "#6C655B"
+                }), month && deltaCell(x)]
+            }, x.key))
+        })]
     }));
-    const kpis = isAll ? [{
-        label: "Total exceptions",
+    const entryTable = (title, action, items, limit) => shell(title, null, action, u.jsxs("table", {
+        style: {
+            width: "100%",
+            borderCollapse: "collapse",
+            fontSize: 12
+        },
+        children: [u.jsx("thead", {
+            children: u.jsxs("tr", {
+                style: {
+                    background: "#FAF7F2"
+                },
+                children: [th("Date"), th("Branch"), th("Staff"), ...types.map(t => th(t.label, !0)), isAll && th("Total", !0)]
+            })
+        }), u.jsx("tbody", {
+            children: items.slice(0, limit).map(r => u.jsxs("tr", {
+                style: {
+                    borderTop: "1px solid #F3EEE4"
+                },
+                children: [td(is(r.date)), td(r.branch), td(r.staffName, {
+                    fontWeight: 600
+                }), ...types.map(t => td(r.e[t.id] ? money(r.a[t.id]) : "—", {
+                    textAlign: "right",
+                    fontFamily: mono,
+                    color: r.e[t.id] ? "#2C2A29" : "#B7AF9E"
+                })), isAll && td(money(sumOf(r.a)), {
+                    textAlign: "right",
+                    fontFamily: mono,
+                    fontWeight: 700
+                })]
+            }, r.id))
+        })]
+    }));
+    const sortedRows = [...data.rows].sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : 0);
+    // ---- coverage: branches that are not in the branch ranking ----
+    const encBranches = Object.keys(data.byBranch);
+    const notEncoded = branchNames.filter(n => encBranches.indexOf(n) === -1 && (branch === "All" || n === branch));
+    const zeroAmt = encBranches.filter(n => !branchRank.some(x => x.key === n));
+    const topBranch = branchRank[0],
+        topStaff = staffRank[0];
+    const kpis = [{
+        label: isAll ? "Total exceptions" : titles[0] + " total",
         value: money(viewTotal),
-        color: "#121110"
-    }, ...__TX_TYPES.map(t => ({
+        color: isAll ? "#121110" : one.color
+    }, ...(isAll ? __TX_TYPES.map(t => ({
         label: t.label,
         value: money(data.totals[t.id]),
         color: t.color
-    }))] : [{
-        label: titles[0] + " total",
-        value: money(viewTotal),
-        color: types[0].color
+    })) : []), {
+        label: "#1 branch",
+        value: topBranch ? topBranch.key : "—",
+        sub: topBranch ? money(topBranch.m) : "",
+        color: "#A9853F",
+        small: !0
     }, {
+        label: "#1 staff",
+        value: topStaff ? topStaff.o.staffName : "—",
+        sub: topStaff ? topStaff.o.branch + " • " + money(topStaff.m) : "",
+        color: "#A9853F",
+        small: !0
+    }, ...(isAll ? [] : [{
         label: "Days with amounts",
         value: String(activeDays),
         color: "#121110"
-    }, {
-        label: "Highest single day",
-        value: money(maxDay),
-        color: "#121110"
-    }];
+    }])];
+    const legend = isAll && u.jsx("div", {
+        style: {
+            display: "flex",
+            gap: 12,
+            fontSize: 11
+        },
+        children: __TX_TYPES.map(t => u.jsxs("span", {
+            style: {
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 5
+            },
+            children: [u.jsx("i", {
+                style: {
+                    width: 9,
+                    height: 9,
+                    borderRadius: 2,
+                    background: t.color,
+                    display: "inline-block"
+                }
+            }), t.label]
+        }, t.id))
+    });
+    const rankSub = "Ranked by peso amount, highest first" + (isAll && rankBy !== "total" ? " (" + __TX_TYPES.find(t => t.id === rankBy).label + ")" : "") + ". Days columns are for information only and do not affect the rank.";
     return u.jsxs("div", {
         id: "transaction-page",
         className: "space-y-6 animate-fade-in text-[#2C2A29]",
@@ -35100,6 +35251,26 @@ function __TxPage({
                         children: n
                     }, n))]
                 })]
+            }), isAll && u.jsxs("div", {
+                children: [u.jsx("div", {
+                    style: {
+                        ...lbl,
+                        marginBottom: 4
+                    },
+                    children: "Rank by amount of"
+                }), u.jsxs("select", {
+                    id: "tx-rank-by",
+                    value: rankBy,
+                    onChange: e => setRankBy(e.target.value),
+                    style: ctl,
+                    children: [u.jsx("option", {
+                        value: "total",
+                        children: "Total (all three)"
+                    }), __TX_TYPES.map(t => u.jsx("option", {
+                        value: t.id,
+                        children: t.label
+                    }, t.id))]
+                })]
             }), u.jsx("button", {
                 type: "button",
                 onClick: () => setMonth(month ? "" : Ou().slice(0, 7)),
@@ -35126,12 +35297,21 @@ function __TxPage({
                     children: k.label
                 }), u.jsx("div", {
                     style: {
-                        fontFamily: "'JetBrains Mono',monospace",
+                        fontFamily: k.small ? "inherit" : mono,
                         fontWeight: 700,
-                        fontSize: 20,
-                        marginTop: 6
+                        fontSize: k.small ? 15 : 20,
+                        marginTop: 6,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis"
                     },
                     children: k.value
+                }), k.sub && u.jsx("div", {
+                    style: {
+                        fontSize: 11,
+                        color: "#6C655B",
+                        marginTop: 2
+                    },
+                    children: k.sub
                 })]
             }, k.label))
         }), u.jsxs("div", {
@@ -35151,6 +35331,7 @@ function __TxPage({
             children: "No exception amounts have been encoded for this period yet. Add them in the Daily EOD Matrix entry form."
         }) : u.jsxs(u.Fragment, {
             children: [u.jsxs("section", {
+                id: "tx-daily-chart",
                 style: card,
                 children: [u.jsxs("div", {
                     style: {
@@ -35158,89 +35339,181 @@ function __TxPage({
                         justifyContent: "space-between",
                         flexWrap: "wrap",
                         gap: 8,
-                        marginBottom: 12
+                        marginBottom: 6
                     },
                     children: [u.jsx("h3", {
                         className: "font-serif font-bold text-base text-gray-900 italic",
-                        children: "Daily trend"
-                    }), isAll && u.jsx("div", {
-                        style: {
-                            display: "flex",
-                            gap: 12,
-                            fontSize: 11
-                        },
-                        children: __TX_TYPES.map(t => u.jsxs("span", {
-                            style: {
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: 5
-                            },
-                            children: [u.jsx("i", {
-                                style: {
-                                    width: 9,
-                                    height: 9,
-                                    borderRadius: 2,
-                                    background: t.color,
-                                    display: "inline-block"
-                                }
-                            }), t.label]
-                        }, t.id))
-                    })]
-                }), u.jsx("div", {
+                        children: "Daily impact"
+                    }), legend]
+                }), u.jsxs("div", {
                     style: {
+                        fontFamily: mono,
+                        fontSize: 12,
+                        marginBottom: 14,
                         display: "flex",
-                        alignItems: "stretch",
-                        gap: 4,
-                        height: 150,
-                        overflowX: "auto"
+                        flexWrap: "wrap",
+                        gap: "4px 18px"
                     },
-                    children: shown.map(d => {
-                        const o = data.byDate[d];
-                        return u.jsxs("div", {
-                            title: is(d) + ": " + money(sumOf(o)),
+                    children: [u.jsxs("span", {
+                        children: [u.jsx("b", {
+                            children: "Highest Impact Day: "
+                        }), bestDay ? dayName(bestDay) + " • " + money(maxDay) : "—"]
+                    }), u.jsxs("span", {
+                        children: [u.jsx("b", {
+                            children: "Total Impact: "
+                        }), money(viewTotal)]
+                    }), u.jsxs("span", {
+                        children: [u.jsx("b", {
+                            children: "Days with entries: "
+                        }), activeDays]
+                    })]
+                }), u.jsxs("div", {
+                    style: {
+                        display: "flex"
+                    },
+                    children: [u.jsx("div", {
+                        style: {
+                            width: 78,
+                            position: "relative",
+                            height: H,
+                            flex: "none",
+                            marginBottom: 24
+                        },
+                        children: [0, 1, 2, 3, 4].map(i => u.jsx("div", {
                             style: {
-                                flex: 1,
-                                minWidth: 16,
-                                display: "flex",
-                                flexDirection: "column",
-                                justifyContent: "flex-end",
-                                alignItems: "stretch",
-                                height: "100%"
+                                position: "absolute",
+                                right: 8,
+                                bottom: i / 4 * 100 + "%",
+                                transform: "translateY(50%)",
+                                fontSize: 10,
+                                color: "#6C655B",
+                                fontFamily: mono
                             },
-                            children: [u.jsx("div", {
+                            children: "₱" + IQ(top * i / 4, 0)
+                        }, i))
+                    }), u.jsx("div", {
+                        style: {
+                            flex: 1,
+                            overflowX: "auto"
+                        },
+                        children: u.jsxs("div", {
+                            style: {
+                                minWidth: dayList.length * 28
+                            },
+                            children: [u.jsxs("div", {
                                 style: {
-                                    flex: 1,
+                                    position: "relative",
+                                    height: H,
                                     display: "flex",
-                                    flexDirection: "column",
-                                    justifyContent: "flex-end"
+                                    alignItems: "stretch"
                                 },
-                                children: types.map(t => o[t.id] > 0 && maxDay > 0 ? u.jsx("div", {
+                                children: [...[0, 1, 2, 3, 4].map(i => u.jsx("div", {
                                     style: {
-                                        height: o[t.id] / maxDay * 100 + "%",
-                                        minHeight: 2,
-                                        background: t.color
+                                        position: "absolute",
+                                        left: 0,
+                                        right: 0,
+                                        bottom: i / 4 * 100 + "%",
+                                        borderTop: "1px solid " + (i === 0 ? "#D8CFBD" : "#EEE8DB"),
+                                        pointerEvents: "none"
                                     }
-                                }, t.id) : null)
+                                }, "g" + i)), ...dayList.map(d => {
+                                    const o = data.byDate[d];
+                                    return u.jsx("div", {
+                                        "data-day": d,
+                                        onMouseEnter: () => setHover(d),
+                                        onMouseLeave: () => setHover(null),
+                                        onClick: () => setSel(sel === d ? null : d),
+                                        style: {
+                                            flex: "1 0 24px",
+                                            padding: "0 2px",
+                                            display: "flex",
+                                            flexDirection: "column",
+                                            justifyContent: "flex-end",
+                                            cursor: o ? "pointer" : "default",
+                                            position: "relative",
+                                            background: d === sel ? "rgba(197,160,89,.16)" : hover === d ? "rgba(197,160,89,.08)" : "transparent"
+                                        },
+                                        children: types.map(t => o && o[t.id] > 0 ? u.jsx("div", {
+                                            style: {
+                                                height: o[t.id] / top * 100 + "%",
+                                                minHeight: 2,
+                                                background: "linear-gradient(180deg," + t.color + "CC," + t.color + ")",
+                                                borderRadius: 2
+                                            }
+                                        }, t.id) : null)
+                                    }, d)
+                                })]
                             }), u.jsx("div", {
                                 style: {
-                                    fontSize: 9,
-                                    color: "#6C655B",
-                                    textAlign: "center",
-                                    marginTop: 4
+                                    display: "flex"
                                 },
-                                children: d.slice(8)
+                                children: dayList.map(d => u.jsx("div", {
+                                    style: {
+                                        flex: "1 0 24px",
+                                        height: 24,
+                                        boxSizing: "border-box",
+                                        paddingTop: 4,
+                                        textAlign: "center",
+                                        fontSize: month ? 13 : 10,
+                                        fontWeight: 700,
+                                        color: d === sel ? "#A9853F" : "#6C655B"
+                                    },
+                                    children: month ? Number(d.slice(8)) : d.slice(5)
+                                }, d))
                             })]
-                        }, d)
-                    })
-                }), dates.length > 31 && u.jsx("div", {
+                        })
+                    })]
+                }), u.jsx("div", {
+                    id: "tx-chart-info",
                     style: {
-                        fontSize: 10.5,
+                        textAlign: "center",
+                        fontSize: 11.5,
                         color: "#6C655B",
-                        marginTop: 6
+                        fontStyle: "italic",
+                        marginTop: 10,
+                        minHeight: 16
                     },
-                    children: "Showing the latest 31 dates that have entries."
+                    children: hover ? tipFor(hover) : "Hover a bar for details • Click a bar to view that day's records"
                 })]
-            }), table("By branch", ["Branch"], branchItems, 50), table("By staff (top 15)", ["Staff", "Branch"], staffItems, 15), table("Entries", ["Date", "Branch", "Staff"], detailItems, 100), detailItems.length > 100 && u.jsx("div", {
+            }), sel && entryTable("Records on " + is(sel), u.jsx("button", {
+                type: "button",
+                onClick: () => setSel(null),
+                style: {
+                    ...ctl,
+                    cursor: "pointer",
+                    fontWeight: 600,
+                    padding: "5px 10px"
+                },
+                children: "Close"
+            }), sortedRows.filter(r => r.date === sel), 200), rankTable("Branch ranking", rankSub + " " + branchRank.length + " branch(es) with an amount.", ["Branch"], branchRank, x => [x.key]), (notEncoded.length > 0 || zeroAmt.length > 0) && u.jsxs("details", {
+                style: {
+                    ...card,
+                    fontSize: 12
+                },
+                children: [u.jsx("summary", {
+                    style: {
+                        cursor: "pointer",
+                        fontWeight: 700
+                    },
+                    children: "Branches not in the ranking (" + (notEncoded.length + zeroAmt.length) + ")"
+                }), notEncoded.length > 0 && u.jsxs("p", {
+                    style: {
+                        marginTop: 8,
+                        color: "#6C655B"
+                    },
+                    children: [u.jsx("b", {
+                        children: "Nothing encoded yet: "
+                    }), notEncoded.join(", ")]
+                }), zeroAmt.length > 0 && u.jsxs("p", {
+                    style: {
+                        marginTop: 8,
+                        color: "#6C655B"
+                    },
+                    children: [u.jsx("b", {
+                        children: "Encoded, but no amount for this measure: "
+                    }), zeroAmt.join(", ")]
+                })]
+            }), rankTable("Staff ranking", rankSub + " " + staffRank.length + " staff with an amount.", ["Staff", "Branch"], staffRank, x => [x.o.staffName, x.o.branch]), entryTable("All entries", null, sortedRows, 100), sortedRows.length > 100 && u.jsx("div", {
                 style: {
                     fontSize: 10.5,
                     color: "#6C655B"
