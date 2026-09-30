@@ -12968,6 +12968,22 @@ const gL = [
                 badge: y > 0 ? `${y} Pending` : void 0,
                 badgeColor: "bg-amber-500 text-black"
             }, {
+                id: "transaction",
+                label: "Transaction",
+                children: [{
+                    id: "transaction-void",
+                    label: "Void",
+                    icon: "void"
+                }, {
+                    id: "transaction-refund",
+                    label: "Return/Refund",
+                    icon: "refund"
+                }, {
+                    id: "transaction-revert",
+                    label: "Revert YP",
+                    icon: "revert"
+                }]
+            }, {
                 id: "staff",
                 label: "Staff Monitoring",
                 icon: Uc,
@@ -13013,6 +13029,11 @@ const gL = [
                     className: "space-y-1",
                     id: "sidebar-nav",
                     children: E.map(B => {
+                        if (B.children) return u.jsx(__TxNavGroup, {
+                            group: B,
+                            activeTab: A,
+                            onSelect: p
+                        }, B.id);
                         const Q = B.icon,
                             N = A === B.id || B.id === "staff" && A === "staff-monitoring";
                         return u.jsxs("button", {
@@ -15034,9 +15055,12 @@ const gL = [
             [D, M] = ve.useState((g == null ? void 0 : g.rootCauseOther) || ""),
             [z, q] = ve.useState((g == null ? void 0 : g.remarks) || ""),
             [le, X] = ve.useState((g == null ? void 0 : g.evidencePhoto) || ""),
-            [ee, ne] = ve.useState((g == null ? void 0 : g.itemRows) || []);
+            [ee, ne] = ve.useState((g == null ? void 0 : g.itemRows) || []),
+            [txVoid, setTxVoid] = ve.useState((g == null ? void 0 : g.txVoid) || ""),
+            [txRefund, setTxRefund] = ve.useState((g == null ? void 0 : g.txRefund) || ""),
+            [txRevert, setTxRevert] = ve.useState((g == null ? void 0 : g.txRevert) || "");
         ve.useEffect(() => {
-            B.trim() || N.trim() || z.trim() || le || D.trim() || v || ee.some(Ge => Ge.itemId || Ge.itemName || Ge.quantity > 0 || Ge.rawQty && Ge.rawQty !== "") ? EQ({
+            txVoid || txRefund || txRevert || B.trim() || N.trim() || z.trim() || le || D.trim() || v || ee.some(Ge => Ge.itemId || Ge.itemName || Ge.quantity > 0 || Ge.rawQty && Ge.rawQty !== "") ? EQ({
                 editingRecordId: v,
                 date: p,
                 branch: B,
@@ -15048,9 +15072,12 @@ const gL = [
                 rootCauseOther: D,
                 remarks: z,
                 evidencePhoto: le,
-                itemRows: ee
+                itemRows: ee,
+                txVoid,
+                txRefund,
+                txRevert
             }) : Y5()
-        }, [v, p, B, N, j, _, R, O, D, z, le, ee]);
+        }, [v, p, B, N, j, _, R, O, D, z, le, ee, txVoid, txRefund, txRevert]);
         const [ge, we] = ve.useState([]), [W, U] = ve.useState(null), [G, Y] = ve.useState(!1), [ie, de] = ve.useState(null), [pe, H] = ve.useState(null), [fe, ye] = ve.useState(null), Le = ve.useMemo(() => t.filter(me => me.status === "Active"), [t]);
         ve.useMemo(() => B ? Le.filter(me => me.branch.toLowerCase().trim() === B.toLowerCase().trim()) : [], [Le, B]);
         const ke = ve.useMemo(() => r.filter(me => me.active), [r]),
@@ -15192,10 +15219,10 @@ const gL = [
                 }).catch(() => alert("This image could not be processed. Please choose a smaller image (under 2MB)."))
             },
             he = () => {
-                y(null), E(Ou()), Q(""), F(""), L("Wrong EOD"), k("Y"), V("FG"), re("Staff Error"), M(""), q(""), X(""), ne([Ee(), Ee()]), we([]), Y5()
+                y(null), E(Ou()), Q(""), F(""), L("Wrong EOD"), k("Y"), V("FG"), re("Staff Error"), M(""), q(""), X(""), setTxVoid(""), setTxRefund(""), setTxRevert(""), ne([Ee(), Ee()]), we([]), Y5()
             },
             Re = me => {
-                y(me.id), E(me.date), Q(me.branch), F(me.staffId), L(me.issueType), k(me.varianceStatus), V(me.department || "FG"), re(me.rootCause || "Staff Error"), M(me.rootCauseOther || ""), q(me.remarks || ""), X(me.evidencePhoto || ""), ne(me.items.length > 0 ? me.items.map(Ge => ({
+                y(me.id), E(me.date), Q(me.branch), F(me.staffId), L(me.issueType), k(me.varianceStatus), V(me.department || "FG"), re(me.rootCause || "Staff Error"), M(me.rootCauseOther || ""), q(me.remarks || ""), X(me.evidencePhoto || ""), setTxVoid(me.voidAmount != null ? String(me.voidAmount) : ""), setTxRefund(me.refundAmount != null ? String(me.refundAmount) : ""), setTxRevert(me.revertYpAmount != null ? String(me.revertYpAmount) : ""), ne(me.items.length > 0 ? me.items.map(Ge => ({
                     ...Ge,
                     rawQty: Ge.quantity > 0 ? String(Ge.quantity) : "",
                     rawPrice: Ge.unitPrice > 0 ? String(Ge.unitPrice) : ""
@@ -15208,6 +15235,24 @@ const gL = [
                 var Mt, er, Nt;
                 me.preventDefault();
                 const Ge = [];
+                const __txp = __v => {
+                    const __s = String(__v).trim();
+                    if (__s === "") return {
+                        ok: !0,
+                        val: void 0
+                    };
+                    const __n = Number(__s);
+                    return isFinite(__n) && __n >= 0 ? {
+                        ok: !0,
+                        val: Math.round(__n * 100) / 100
+                    } : {
+                        ok: !1
+                    }
+                };
+                const __tv = __txp(txVoid),
+                    __tr = __txp(txRefund),
+                    __ty = __txp(txRevert);
+                __tv.ok || Ge.push("Void amount must be a number of 0 or more."), __tr.ok || Ge.push("Return/Refund amount must be a number of 0 or more."), __ty.ok || Ge.push("Revert YP amount must be a number of 0 or more.");
                 p || Ge.push("Audit Date is required."), B.trim() || Ge.push("Branch Location is required (please type/select a branch)."), N.trim() || Ge.push("Assigned Staff is required (please type/select a staff member)."), j || Ge.push("Issue Type is required."), _ || Ge.push("Variance Status is required."), O === "Others" && !D.trim() && Ge.push('Please provide an explanation when "Others" is selected as Root Cause.');
                 const lt = ee.filter(ct => {
                     const Pt = !!(ct.itemId && ct.itemId.trim() || ct.itemName && ct.itemName.trim()),
@@ -15256,6 +15301,9 @@ const gL = [
                         rootCauseOther: O === "Others" ? D : void 0,
                         remarks: z.trim() || void 0,
                         evidencePhoto: le || void 0,
+                        voidAmount: __tv.val,
+                        refundAmount: __tr.val,
+                        revertYpAmount: __ty.val,
                         createdAt: v ? ((Mt = A.find(ct => ct.id === v)) == null ? void 0 : Mt.createdAt) || new Date().toISOString() : new Date().toISOString(),
                         updatedAt: new Date().toISOString()
                     };
@@ -15618,6 +15666,45 @@ const gL = [
                             onChange: me => q(me.target.value),
                             className: "w-full px-3 py-2 border border-[#EAE3D5] rounded-xl bg-white text-gray-900 text-xs focus:outline-none focus:ring-1 focus:ring-[#C5A059]"
                         })]
+                    })]
+                }), u.jsxs("div", {
+                    id: "tx-exceptions-block",
+                    className: "space-y-2 pt-2 border-t border-[#FAF7F2] text-xs",
+                    children: [u.jsx("label", {
+                        className: "text-[10.5px] font-bold text-[#6C655B] uppercase tracking-wider block",
+                        children: "Transaction Exceptions - Amount (Optional)"
+                    }), u.jsx("p", {
+                        className: "text-[11px] text-[#6C655B]",
+                        children: "Leave blank if not encoded yet. Enter 0 if you checked and there were none."
+                    }), u.jsx("div", {
+                        style: {
+                            display: "grid",
+                            gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))",
+                            gap: 12
+                        },
+                        children: [
+                            ["Void", txVoid, setTxVoid, "tx-void-amount"],
+                            ["Return/Refund", txRefund, setTxRefund, "tx-refund-amount"],
+                            ["Revert YP", txRevert, setTxRevert, "tx-revert-amount"]
+                        ].map(__f => u.jsxs("div", {
+                            className: "space-y-1",
+                            children: [u.jsx("label", {
+                                htmlFor: __f[3],
+                                className: "text-[10.5px] font-bold text-[#6C655B] uppercase tracking-wider block",
+                                children: __f[0] + " Amount (PHP)"
+                            }), u.jsx("input", {
+                                id: __f[3],
+                                type: "number",
+                                min: "0",
+                                step: "any",
+                                inputMode: "decimal",
+                                placeholder: "-",
+                                value: __f[1],
+                                onChange: __e => __f[2](__e.target.value),
+                                onWheel: __e => __e.currentTarget.blur(),
+                                className: "w-full px-3 py-2 border border-[#EAE3D5] rounded-xl bg-white text-gray-900 text-xs focus:outline-none focus:ring-1 focus:ring-[#C5A059]"
+                            })]
+                        }, __f[3]))
                     })]
                 }), u.jsxs("div", {
                     className: "space-y-2 pt-2 border-t border-[#FAF7F2] text-xs",
@@ -34620,6 +34707,551 @@ const B8 = ({
         })
     };
 
+/* ===== Transaction module: Void / Return-Refund / Revert YP =====
+   Data comes from Daily EOD records (voidAmount, refundAmount, revertYpAmount).
+   blank/absent = not encoded yet, 0 = checked and none. Styling is inline on purpose,
+   so it does not depend on which Tailwind classes exist in the compiled stylesheet. */
+const __TX_TYPES = [{
+    id: "void",
+    key: "voidAmount",
+    label: "Void",
+    color: "#B53D43"
+}, {
+    id: "refund",
+    key: "refundAmount",
+    label: "Return/Refund",
+    color: "#C5A059"
+}, {
+    id: "revert",
+    key: "revertYpAmount",
+    label: "Revert YP",
+    color: "#4B6E8C"
+}];
+const __TX_PATHS = {
+    tx: '<path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/>',
+    void: '<circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/>',
+    refund: '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
+    revert: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5 5.5 5.5 0 0 1-5.5 5.5H11"/>',
+    chev: '<path d="m6 9 6 6 6-6"/>'
+};
+
+function __txIcon(name, size) {
+    return u.jsx("svg", {
+        width: size || 16,
+        height: size || 16,
+        viewBox: "0 0 24 24",
+        fill: "none",
+        stroke: "currentColor",
+        strokeWidth: 2,
+        strokeLinecap: "round",
+        strokeLinejoin: "round",
+        style: {
+            flex: "none"
+        },
+        "aria-hidden": "true",
+        dangerouslySetInnerHTML: {
+            __html: __TX_PATHS[name]
+        }
+    })
+}
+
+function __TxNavGroup({
+    group,
+    activeTab,
+    onSelect
+}) {
+    const inGroup = activeTab === group.id || String(activeTab).indexOf(group.id + "-") === 0;
+    const [open, setOpen] = ve.useState(inGroup);
+    ve.useEffect(() => {
+        if (inGroup) setOpen(!0)
+    }, [inGroup]);
+    const base = "w-full flex items-center justify-between py-2.5 px-3 rounded-xl text-xs font-semibold cursor-pointer transition-all duration-150 border-l-2 ";
+    const on = "bg-[#1B1918] text-[#C5A059] border-[#C5A059] shadow-sm font-bold";
+    const off = "text-[#A69C8E] border-transparent hover:bg-[#161514] hover:text-white";
+    return u.jsxs("div", {
+        children: [u.jsxs("button", {
+            id: "nav-tab-" + group.id,
+            type: "button",
+            "aria-expanded": open,
+            onClick: () => {
+                onSelect(group.id);
+                setOpen(!0)
+            },
+            className: base + (activeTab === group.id ? on : off),
+            children: [u.jsxs("div", {
+                className: "flex items-center gap-2.5",
+                children: [__txIcon("tx", 16), u.jsx("span", {
+                    children: group.label
+                })]
+            }), u.jsx("span", {
+                role: "button",
+                "aria-label": open ? "Collapse Transaction menu" : "Expand Transaction menu",
+                onClick: e => {
+                    e.stopPropagation();
+                    setOpen(o => !o)
+                },
+                style: {
+                    display: "inline-flex",
+                    padding: 2,
+                    transition: "transform .15s",
+                    transform: open ? "rotate(180deg)" : "none"
+                },
+                children: __txIcon("chev", 14)
+            })]
+        }), open && u.jsx("div", {
+            style: {
+                margin: "4px 0 4px 14px",
+                paddingLeft: 8,
+                borderLeft: "1px solid #22201D",
+                display: "flex",
+                flexDirection: "column",
+                gap: 2
+            },
+            children: group.children.map(c => u.jsxs("button", {
+                id: "nav-tab-" + c.id,
+                type: "button",
+                onClick: () => onSelect(c.id),
+                className: "w-full flex items-center gap-2.5 py-2 px-3 rounded-xl text-xs font-semibold cursor-pointer transition-all duration-150 " + (activeTab === c.id ? "bg-[#1B1918] text-[#C5A059]" : "text-[#A69C8E] hover:bg-[#161514] hover:text-white"),
+                children: [__txIcon(c.icon, 14), u.jsx("span", {
+                    children: c.label
+                })]
+            }, c.id))
+        })]
+    })
+}
+
+function __TxPage({
+    view,
+    records,
+    branches
+}) {
+    const isAll = view === "transaction";
+    const types = isAll ? __TX_TYPES : __TX_TYPES.filter(t => "transaction-" + t.id === view);
+    const [month, setMonth] = ve.useState(Ou().slice(0, 7));
+    const [branch, setBranch] = ve.useState("All");
+    const has = v => v !== null && v !== void 0 && v !== "" && isFinite(Number(v));
+    const numOf = v => has(v) ? Number(v) : 0;
+    const data = ve.useMemo(() => {
+        const list = (Array.isArray(records) ? records : []).filter(r => r && r.date && (!month || String(r.date).slice(0, 7) === month) && (branch === "All" || r.branch === branch));
+        const enc = list.filter(r => __TX_TYPES.some(t => has(r[t.key])));
+        const totals = {
+            void: 0,
+            refund: 0,
+            revert: 0
+        };
+        const byDate = {},
+            byBranch = {},
+            byStaff = {},
+            rows = [];
+        enc.forEach(r => {
+            const a = {},
+                e = {};
+            __TX_TYPES.forEach(t => {
+                a[t.id] = numOf(r[t.key]);
+                e[t.id] = has(r[t.key]);
+                totals[t.id] += a[t.id]
+            });
+            const add = (map, k, meta) => {
+                const o = map[k] || (map[k] = Object.assign({
+                    void: 0,
+                    refund: 0,
+                    revert: 0
+                }, meta));
+                __TX_TYPES.forEach(t => {
+                    o[t.id] += a[t.id]
+                })
+            };
+            add(byDate, r.date, {});
+            add(byBranch, r.branch || "—", {});
+            add(byStaff, (r.staffName || "—") + "|" + (r.branch || ""), {
+                staffName: r.staffName || "—",
+                branch: r.branch || "—"
+            });
+            rows.push({
+                id: r.id,
+                date: r.date,
+                branch: r.branch || "—",
+                staffName: r.staffName || "—",
+                a,
+                e
+            })
+        });
+        return {
+            list,
+            enc,
+            totals,
+            byDate,
+            byBranch,
+            byStaff,
+            rows
+        }
+    }, [records, month, branch]);
+    const sumOf = o => types.reduce((s, t) => s + (o[t.id] || 0), 0);
+    const money = v => Qt(v);
+    const card = {
+        background: "#fff",
+        border: "1px solid #EAE3D5",
+        borderRadius: 16,
+        padding: 16
+    };
+    const lbl = {
+        fontSize: 10.5,
+        fontWeight: 700,
+        color: "#6C655B",
+        textTransform: "uppercase",
+        letterSpacing: ".06em"
+    };
+    const ctl = {
+        padding: "8px 10px",
+        border: "1px solid #EAE3D5",
+        borderRadius: 12,
+        background: "#fff",
+        fontSize: 12,
+        color: "#2C2A29"
+    };
+    const titles = {
+        transaction: ["Transaction", "All exception amounts (Void, Return/Refund, Revert YP) captured from the Daily EOD Matrix."],
+        "transaction-void": ["Void", "Voided transaction amounts captured from the Daily EOD Matrix."],
+        "transaction-refund": ["Return / Refund", "Returned and refunded amounts captured from the Daily EOD Matrix."],
+        "transaction-revert": ["Revert YP", "Reverted YP amounts captured from the Daily EOD Matrix."]
+    } [view] || ["Transaction", ""];
+    const branchNames = (Array.isArray(branches) ? branches : []).map(b => b && b.name).filter(Boolean).sort((a, b) => a.localeCompare(b));
+    const viewTotal = sumOf(data.totals);
+    const dates = Object.keys(data.byDate).sort();
+    const shown = dates.slice(-31);
+    const maxDay = Math.max(0, ...shown.map(d => sumOf(data.byDate[d])));
+    const activeDays = shown.filter(d => sumOf(data.byDate[d]) > 0).length;
+    const table = (title, firstCols, items, limit) => u.jsxs("section", {
+        style: {
+            ...card,
+            padding: 0,
+            overflow: "hidden"
+        },
+        children: [u.jsx("div", {
+            style: {
+                padding: "14px 16px",
+                borderBottom: "1px solid #F3EEE4"
+            },
+            children: u.jsx("h3", {
+                className: "font-serif font-bold text-base text-gray-900 italic",
+                children: title
+            })
+        }), u.jsx("div", {
+            style: {
+                overflowX: "auto"
+            },
+            children: u.jsxs("table", {
+                style: {
+                    width: "100%",
+                    borderCollapse: "collapse",
+                    fontSize: 12
+                },
+                children: [u.jsx("thead", {
+                    children: u.jsxs("tr", {
+                        style: {
+                            background: "#FAF7F2"
+                        },
+                        children: [...firstCols.map(c => u.jsx("th", {
+                            style: {
+                                ...lbl,
+                                textAlign: "left",
+                                padding: "10px 14px",
+                                whiteSpace: "nowrap"
+                            },
+                            children: c
+                        }, c)), ...types.map(t => u.jsx("th", {
+                            style: {
+                                ...lbl,
+                                textAlign: "right",
+                                padding: "10px 14px",
+                                whiteSpace: "nowrap"
+                            },
+                            children: t.label
+                        }, t.id)), isAll && u.jsx("th", {
+                            style: {
+                                ...lbl,
+                                textAlign: "right",
+                                padding: "10px 14px"
+                            },
+                            children: "Total"
+                        })]
+                    })
+                }), u.jsx("tbody", {
+                    children: items.slice(0, limit).map((it, i) => u.jsxs("tr", {
+                        style: {
+                            borderTop: "1px solid #F3EEE4"
+                        },
+                        children: [...it.cells.map((c, j) => u.jsx("td", {
+                            style: {
+                                padding: "9px 14px",
+                                whiteSpace: "nowrap",
+                                fontWeight: j === 0 ? 600 : 400
+                            },
+                            children: c
+                        }, j)), ...types.map(t => u.jsx("td", {
+                            style: {
+                                padding: "9px 14px",
+                                textAlign: "right",
+                                fontFamily: "'JetBrains Mono',monospace",
+                                color: it.e && !it.e[t.id] ? "#B7AF9E" : "#2C2A29"
+                            },
+                            children: it.e && !it.e[t.id] ? "—" : money(it.v[t.id])
+                        }, t.id)), isAll && u.jsx("td", {
+                            style: {
+                                padding: "9px 14px",
+                                textAlign: "right",
+                                fontFamily: "'JetBrains Mono',monospace",
+                                fontWeight: 700
+                            },
+                            children: money(sumOf(it.v))
+                        })]
+                    }, it.key || i))
+                })]
+            })
+        })]
+    });
+    const branchItems = Object.keys(data.byBranch).map(k => ({
+        key: k,
+        cells: [k],
+        v: data.byBranch[k]
+    })).sort((a, b) => sumOf(b.v) - sumOf(a.v));
+    const staffItems = Object.keys(data.byStaff).map(k => ({
+        key: k,
+        cells: [data.byStaff[k].staffName, data.byStaff[k].branch],
+        v: data.byStaff[k]
+    })).sort((a, b) => sumOf(b.v) - sumOf(a.v));
+    const detailItems = [...data.rows].sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : 0).map(r => ({
+        key: r.id,
+        cells: [is(r.date), r.branch, r.staffName],
+        v: r.a,
+        e: r.e
+    }));
+    const kpis = isAll ? [{
+        label: "Total exceptions",
+        value: money(viewTotal),
+        color: "#121110"
+    }, ...__TX_TYPES.map(t => ({
+        label: t.label,
+        value: money(data.totals[t.id]),
+        color: t.color
+    }))] : [{
+        label: titles[0] + " total",
+        value: money(viewTotal),
+        color: types[0].color
+    }, {
+        label: "Days with amounts",
+        value: String(activeDays),
+        color: "#121110"
+    }, {
+        label: "Highest single day",
+        value: money(maxDay),
+        color: "#121110"
+    }];
+    return u.jsxs("div", {
+        id: "transaction-page",
+        className: "space-y-6 animate-fade-in text-[#2C2A29]",
+        children: [u.jsxs("div", {
+            className: "border-b border-[#EAE3D5] pb-5",
+            children: [u.jsx("h1", {
+                className: "font-serif text-2xl md:text-3xl font-bold text-gray-900 tracking-tight italic",
+                children: titles[0]
+            }), u.jsx("p", {
+                className: "text-sm text-[#6C655B] mt-1",
+                children: titles[1]
+            })]
+        }), u.jsxs("div", {
+            style: {
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 12,
+                alignItems: "flex-end"
+            },
+            children: [u.jsxs("div", {
+                children: [u.jsx("div", {
+                    style: {
+                        ...lbl,
+                        marginBottom: 4
+                    },
+                    children: "Month"
+                }), u.jsx("input", {
+                    id: "tx-filter-month",
+                    type: "month",
+                    value: month,
+                    onChange: e => setMonth(e.target.value),
+                    style: ctl
+                })]
+            }), u.jsxs("div", {
+                children: [u.jsx("div", {
+                    style: {
+                        ...lbl,
+                        marginBottom: 4
+                    },
+                    children: "Branch"
+                }), u.jsxs("select", {
+                    id: "tx-filter-branch",
+                    value: branch,
+                    onChange: e => setBranch(e.target.value),
+                    style: ctl,
+                    children: [u.jsx("option", {
+                        value: "All",
+                        children: "All branches"
+                    }), branchNames.map(n => u.jsx("option", {
+                        value: n,
+                        children: n
+                    }, n))]
+                })]
+            }), u.jsx("button", {
+                type: "button",
+                onClick: () => setMonth(month ? "" : Ou().slice(0, 7)),
+                style: {
+                    ...ctl,
+                    cursor: "pointer",
+                    fontWeight: 600
+                },
+                children: month ? "Show all dates" : "Back to this month"
+            })]
+        }), u.jsx("div", {
+            style: {
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))",
+                gap: 12
+            },
+            children: kpis.map(k => u.jsxs("div", {
+                style: {
+                    ...card,
+                    borderTop: "3px solid " + k.color
+                },
+                children: [u.jsx("div", {
+                    style: lbl,
+                    children: k.label
+                }), u.jsx("div", {
+                    style: {
+                        fontFamily: "'JetBrains Mono',monospace",
+                        fontWeight: 700,
+                        fontSize: 20,
+                        marginTop: 6
+                    },
+                    children: k.value
+                })]
+            }, k.label))
+        }), u.jsxs("div", {
+            style: {
+                fontSize: 11.5,
+                color: "#6C655B"
+            },
+            children: [data.enc.length, " of ", data.list.length, " EOD record(s) in this period have exception amounts encoded. A dash means not encoded yet; ₱0.00 means checked and none."]
+        }), data.enc.length === 0 ? u.jsx("div", {
+            style: {
+                ...card,
+                textAlign: "center",
+                color: "#6C655B",
+                fontSize: 13,
+                padding: 32
+            },
+            children: "No exception amounts have been encoded for this period yet. Add them in the Daily EOD Matrix entry form."
+        }) : u.jsxs(u.Fragment, {
+            children: [u.jsxs("section", {
+                style: card,
+                children: [u.jsxs("div", {
+                    style: {
+                        display: "flex",
+                        justifyContent: "space-between",
+                        flexWrap: "wrap",
+                        gap: 8,
+                        marginBottom: 12
+                    },
+                    children: [u.jsx("h3", {
+                        className: "font-serif font-bold text-base text-gray-900 italic",
+                        children: "Daily trend"
+                    }), isAll && u.jsx("div", {
+                        style: {
+                            display: "flex",
+                            gap: 12,
+                            fontSize: 11
+                        },
+                        children: __TX_TYPES.map(t => u.jsxs("span", {
+                            style: {
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 5
+                            },
+                            children: [u.jsx("i", {
+                                style: {
+                                    width: 9,
+                                    height: 9,
+                                    borderRadius: 2,
+                                    background: t.color,
+                                    display: "inline-block"
+                                }
+                            }), t.label]
+                        }, t.id))
+                    })]
+                }), u.jsx("div", {
+                    style: {
+                        display: "flex",
+                        alignItems: "stretch",
+                        gap: 4,
+                        height: 150,
+                        overflowX: "auto"
+                    },
+                    children: shown.map(d => {
+                        const o = data.byDate[d];
+                        return u.jsxs("div", {
+                            title: is(d) + ": " + money(sumOf(o)),
+                            style: {
+                                flex: 1,
+                                minWidth: 16,
+                                display: "flex",
+                                flexDirection: "column",
+                                justifyContent: "flex-end",
+                                alignItems: "stretch",
+                                height: "100%"
+                            },
+                            children: [u.jsx("div", {
+                                style: {
+                                    flex: 1,
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    justifyContent: "flex-end"
+                                },
+                                children: types.map(t => o[t.id] > 0 && maxDay > 0 ? u.jsx("div", {
+                                    style: {
+                                        height: o[t.id] / maxDay * 100 + "%",
+                                        minHeight: 2,
+                                        background: t.color
+                                    }
+                                }, t.id) : null)
+                            }), u.jsx("div", {
+                                style: {
+                                    fontSize: 9,
+                                    color: "#6C655B",
+                                    textAlign: "center",
+                                    marginTop: 4
+                                },
+                                children: d.slice(8)
+                            })]
+                        }, d)
+                    })
+                }), dates.length > 31 && u.jsx("div", {
+                    style: {
+                        fontSize: 10.5,
+                        color: "#6C655B",
+                        marginTop: 6
+                    },
+                    children: "Showing the latest 31 dates that have entries."
+                })]
+            }), table("By branch", ["Branch"], branchItems, 50), table("By staff (top 15)", ["Staff", "Branch"], staffItems, 15), table("Entries", ["Date", "Branch", "Staff"], detailItems, 100), detailItems.length > 100 && u.jsx("div", {
+                style: {
+                    fontSize: 10.5,
+                    color: "#6C655B"
+                },
+                children: "Showing the latest 100 entries. Narrow the month or branch to see the rest."
+            })]
+        })]
+    })
+}
+
+
 class AppErrorBoundary extends ve.Component {
     constructor(A) {
         super(A), this.state = {
@@ -34802,7 +35434,11 @@ function E8() {
             tracker: "Remediation Action Items & Audit Tracker",
             staff: "Personnel Monitoring & Risk Classification",
             records: "Historical EOD Records Audit Log",
-            settings: "Master Data & Operational Settings"
+            settings: "Master Data & Operational Settings",
+            transaction: "Transaction Exceptions Overview",
+            "transaction-void": "Void Transactions",
+            "transaction-refund": "Return & Refund Transactions",
+            "transaction-revert": "Revert YP Transactions"
         };
     return u.jsxs("div", {
         id: "eod-matrix-app-root",
@@ -34899,6 +35535,10 @@ function E8() {
                     onDeleteRecord: le,
                     onNavigateToMatrix: () => ie(),
                     onNavigateToTab: Se => e(Se)
+                }), (A === "transaction" || A === "transaction-void" || A === "transaction-refund" || A === "transaction-revert") && u.jsx(__TxPage, {
+                    view: A,
+                    records: t,
+                    branches: i
                 }), A === "settings" && u.jsx(C8, {
                     staffList: l,
                     branches: i,
