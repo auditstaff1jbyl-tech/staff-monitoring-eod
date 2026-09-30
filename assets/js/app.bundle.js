@@ -31266,6 +31266,8 @@ const g8 = ({
         disciplinaryActions: __discActions = []
     }) => {
         var ot;
+        const __isLimited = (() => { try { const __i = parseInt(sessionStorage.getItem("__user_idx"), 10); const __u = (!isNaN(__i) && typeof USER_DIRECTORY !== "undefined") ? USER_DIRECTORY[__i] : null; return !!__u && __u.role === "limited" } catch (__e) { return !1 } })();
+        const [__logItem, __setLogItem] = ve.useState(null);
         const __focusedRecord = ve.useMemo(() => __recId ? (r || []).find(rc => rc.id === __recId) : null, [__recId, r]);
         const __staffHistory = ve.useMemo(() => {
             if (!__focusedRecord || !__focusedRecord.staffName) return [];
@@ -31299,9 +31301,11 @@ const g8 = ({
             var Pe, pt, nt;
             L(null), k(((Pe = e[0]) == null ? void 0 : Pe.name) || "CABANTIAN"), V(((pt = t[0]) == null ? void 0 : pt.name) || ""), re(Ou()), M("Wrong EOD"), ne(""), q("High"), X(((nt = t[0]) == null ? void 0 : nt.name) || "Area Manager"), we("Open"), U(Ou()), Y(""), de(""), H(""), F(!0)
         }, Se = Ee => {
+            if (__isLimited) return;
             L(Ee.id), k(Ee.branch), V(Ee.staffName || ""), re(Ee.date), M(Ee.issueType), q(Ee.priority), X(Ee.assignedTo), ne(Ee.actionRequired), we(Ee.status), U(Ee.dueDate), Y(Ee.notes || ""), de(Ee.proofImage1 || ""), H(Ee.proofImage2 || ""), F(!0)
         }, te = Ee => {
             var pt;
+            if (__isLimited) { Ee.preventDefault(); return }
             if (Ee.preventDefault(), !ee.trim()) {
                 alert("Action Required description is mandatory.");
                 return
@@ -31325,6 +31329,7 @@ const g8 = ({
             };
             i(Pe), F(!1)
         }, He = (Ee, Pe) => {
+            if (__isLimited) return;
             const pt = {
                 ...Ee,
                 status: Pe,
@@ -31666,7 +31671,12 @@ const g8 = ({
                                 })]
                             }), u.jsxs("div", {
                                 className: "flex items-center gap-1.5",
-                                children: [u.jsx("button", {
+                                children: __isLimited ? [u.jsx("button", {
+                                    onClick: () => __setLogItem(Ee),
+                                    className: "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-green-300 bg-green-100 text-green-800 hover:bg-green-200 font-mono text-[10.5px] font-bold cursor-pointer transition-colors",
+                                    title: "View logs (read-only)",
+                                    children: "View Logs"
+                                })] : [u.jsx("button", {
                                     onClick: () => Se(Ee),
                                     className: "p-1.5 text-gray-400 hover:text-black hover:bg-gray-100 rounded-lg transition-colors cursor-pointer",
                                     title: "Edit task",
@@ -31729,6 +31739,8 @@ const g8 = ({
                             className: "flex items-center gap-1.5",
                             children: u.jsxs("select", {
                                 value: Ee.status,
+                                disabled: __isLimited,
+                                title: __isLimited ? "View only" : void 0,
                                 onChange: Pe => He(Ee, Pe.target.value),
                                 className: `px-2.5 py-1 rounded-lg border font-mono text-[10.5px] font-bold cursor-pointer ${Ee.status==="Resolved"||Ee.status==="Closed"?"bg-green-100 text-green-800 border-green-300":Ee.status==="In Progress"?"bg-amber-100 text-amber-800 border-amber-300":"bg-red-100 text-red-800 border-red-300"}`,
                                 children: [u.jsx("option", {
@@ -31748,6 +31760,99 @@ const g8 = ({
                         })]
                     })]
                 }, Ee.id))
+            }), __logItem && u.jsx("div", {
+                className: "fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto",
+                onClick: () => __setLogItem(null),
+                children: u.jsxs("div", {
+                    className: "bg-white border border-[#EAE3D5] rounded-2xl shadow-2xl w-full max-w-lg p-6 space-y-4 text-xs animate-fade-in",
+                    onClick: __ev => __ev.stopPropagation(),
+                    children: [u.jsxs("div", {
+                        className: "flex items-center justify-between border-b border-[#FAF7F2] pb-3",
+                        children: [u.jsx("h3", {
+                            className: "font-serif font-bold text-base text-gray-900 italic",
+                            children: "Action Item Logs"
+                        }), u.jsx("button", {
+                            onClick: () => __setLogItem(null),
+                            className: "text-gray-400 hover:text-black font-bold cursor-pointer",
+                            children: "\u2715"
+                        })]
+                    }), u.jsxs("div", {
+                        children: [u.jsxs("div", {
+                            className: "flex items-center gap-2 flex-wrap",
+                            children: [u.jsx("span", {
+                                className: "font-serif font-bold text-sm text-gray-900 uppercase",
+                                children: __logItem.branch
+                            }), u.jsxs("span", {
+                                className: "text-[9px] font-mono font-bold uppercase px-2 py-0.5 rounded-full bg-gray-200 text-gray-800",
+                                children: [__logItem.priority, " Priority"]
+                            }), u.jsxs("span", {
+                                className: "text-[10px] font-mono text-gray-400",
+                                children: ["Due: ", __logItem.dueDate]
+                            })]
+                        }), __logItem.staffName && u.jsxs("p", {
+                            className: "text-xs font-semibold text-gray-700 mt-1",
+                            children: ["Staff: ", __logItem.staffName, " \u2022 Issue: ", u.jsx("span", {
+                                className: "text-[#C5A059]",
+                                children: __logItem.issueType
+                            })]
+                        })]
+                    }), u.jsxs("div", {
+                        children: [u.jsx("span", {
+                            className: "text-[10px] font-bold text-[#6C655B] uppercase tracking-wider block",
+                            children: "Required Action:"
+                        }), u.jsx("p", {
+                            className: "font-semibold text-gray-900 mt-0.5 leading-relaxed bg-[#FAF7F2] p-2.5 rounded-xl border border-[#EAE3D5]",
+                            children: __logItem.actionRequired
+                        })]
+                    }), u.jsxs("div", {
+                        className: "flex items-center justify-between gap-3",
+                        children: [u.jsxs("div", {
+                            className: "text-[11px] text-[#6C655B]",
+                            children: ["Assigned: ", u.jsx("span", {
+                                className: "font-bold text-gray-800",
+                                children: __logItem.assignedTo
+                            })]
+                        }), u.jsxs("span", {
+                            className: `px-2.5 py-1 rounded-lg border font-mono text-[10.5px] font-bold ${__logItem.status === "Resolved" || __logItem.status === "Closed" ? "bg-green-100 text-green-800 border-green-300" : __logItem.status === "In Progress" ? "bg-amber-100 text-amber-800 border-amber-300" : "bg-red-100 text-red-800 border-red-300"}`,
+                            children: ["Status: ", __logItem.status]
+                        })]
+                    }), u.jsxs("div", {
+                        children: [u.jsx("span", {
+                            className: "text-[10px] font-bold text-[#6C655B] uppercase tracking-wider block",
+                            children: "Resolution Notes / Audit Log:"
+                        }), __logItem.notes ? u.jsxs("p", {
+                            className: "text-gray-700 mt-0.5 leading-relaxed italic",
+                            children: ['"', __logItem.notes, '"']
+                        }) : u.jsx("p", {
+                            className: "text-gray-500 mt-0.5 italic",
+                            children: "No resolution notes logged yet."
+                        })]
+                    }), (__logItem.createdAt || __logItem.completionDate) && u.jsxs("div", {
+                        className: "text-[10px] font-mono text-[#6C655B] border-t border-[#FAF7F2] pt-2 space-y-0.5",
+                        children: [__logItem.createdAt && u.jsx("div", {
+                            children: "Logged: " + String(__logItem.createdAt).slice(0, 10)
+                        }), __logItem.completionDate && u.jsx("div", {
+                            children: "Completed: " + __logItem.completionDate
+                        })]
+                    }), (__logItem.proofImage1 || __logItem.proofImage2) && u.jsxs("div", {
+                        className: "flex items-center gap-2 pt-1",
+                        children: [__logItem.proofImage1 && u.jsx("img", {
+                            src: __logItem.proofImage1,
+                            alt: "Proof 1",
+                            onClick: () => window.open(__logItem.proofImage1, "_blank"),
+                            className: "w-12 h-12 object-cover rounded-lg border border-[#EAE3D5] cursor-zoom-in hover:scale-105 transition-transform"
+                        }), __logItem.proofImage2 && u.jsx("img", {
+                            src: __logItem.proofImage2,
+                            alt: "Proof 2",
+                            onClick: () => window.open(__logItem.proofImage2, "_blank"),
+                            className: "w-12 h-12 object-cover rounded-lg border border-[#EAE3D5] cursor-zoom-in hover:scale-105 transition-transform"
+                        })]
+                    }), u.jsx("button", {
+                        onClick: () => __setLogItem(null),
+                        className: "w-full px-5 py-2.5 bg-[#121110] hover:bg-black text-[#C5A059] font-bold rounded-xl text-sm shadow-sm transition-all cursor-pointer",
+                        children: "Close"
+                    })]
+                })
             }), N && u.jsx("div", {
                 className: "fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto",
                 onClick: () => F(!1),
