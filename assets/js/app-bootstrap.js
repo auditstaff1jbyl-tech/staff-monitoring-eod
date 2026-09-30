@@ -47,7 +47,7 @@
     // blob into a new <script> tag) gives the bundle a proper file the browser
     // can cache and show correctly in DevTools, while preserving the same
     // "load on demand" timing as before.
-    import("/assets/js/app.bundle.js?v=4").catch(function (err) {
+    import("/assets/js/app.bundle.js?v=5").catch(function (err) {
       console.error("Failed to load application bundle:", err);
     });
   }

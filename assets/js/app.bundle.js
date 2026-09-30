@@ -35513,13 +35513,7 @@ function __TxPage({
                         children: "Encoded, but no amount for this measure: "
                     }), zeroAmt.join(", ")]
                 })]
-            }), rankTable("Staff ranking", rankSub + " " + staffRank.length + " staff with an amount.", ["Staff", "Branch"], staffRank, x => [x.o.staffName, x.o.branch]), entryTable("All entries", null, sortedRows, 100), sortedRows.length > 100 && u.jsx("div", {
-                style: {
-                    fontSize: 10.5,
-                    color: "#6C655B"
-                },
-                children: "Showing the latest 100 entries. Narrow the month or branch to see the rest."
-            })]
+            }), rankTable("Staff ranking", rankSub + " " + staffRank.length + " staff with an amount.", ["Staff", "Branch"], staffRank, x => [x.o.staffName, x.o.branch])]
         })]
     })
 }
