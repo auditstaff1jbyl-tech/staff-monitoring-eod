@@ -11,6 +11,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,400;1,600;1,700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/assets/css/styles.css">
     <link rel="stylesheet" href="/assets/css/dashboard-polish.css?v=2">
+    <!-- Dark theme overrides: must stay AFTER styles.css and dashboard-polish.css.
+         Only takes effect when <html data-theme="dark"> (set by display-settings.js). -->
+    <link rel="stylesheet" href="/assets/css/dark-theme.css?v=2">
 
     <!--
       Load order matters:
@@ -26,7 +29,7 @@
          number any time one of these three files changes. -->
     <script src="/assets/js/config.js?v=2"></script>
     <script src="/assets/js/app-bootstrap.js?v=11"></script>
-    <script src="/assets/js/display-settings.js?v=4"></script>
+    <script src="/assets/js/display-settings.js?v=5"></script>
   </head>
   <body class="bg-[#FAF7F2] text-[#2C2A29] font-sans antialiased selection:bg-[#C5A059] selection:text-black">
     <div id="root"></div>
