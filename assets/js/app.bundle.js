@@ -31368,7 +31368,8 @@ const g8 = ({
             L(Ee.id), k(Ee.branch), V(Ee.staffName || ""), re(Ee.date), M(Ee.issueType), q(Ee.priority), X(Ee.assignedTo), ne(Ee.actionRequired), we(Ee.status), U(Ee.dueDate), Y(Ee.notes || ""), de(Ee.proofImage1 || ""), H(Ee.proofImage2 || ""), F(!0)
         }, te = Ee => {
             var pt;
-            if (__isLimited) { Ee.preventDefault(); return }
+            if (__isLimited && j) { Ee.preventDefault(); return }
+            const __st = __isLimited ? "Open" : ge;
             if (Ee.preventDefault(), !ee.trim()) {
                 alert("Action Required description is mandatory.");
                 return
@@ -31382,9 +31383,9 @@ const g8 = ({
                 priority: z,
                 assignedTo: le,
                 actionRequired: ee.trim(),
-                status: ge,
+                status: __st,
                 dueDate: W,
-                completionDate: ge === "Resolved" || ge === "Closed" ? ((pt = A.find(nt => nt.id === j)) == null ? void 0 : pt.completionDate) || Ou() : void 0,
+                completionDate: __st === "Resolved" || __st === "Closed" ? ((pt = A.find(nt => nt.id === j)) == null ? void 0 : pt.completionDate) || Ou() : void 0,
                 notes: G.trim() || void 0,
                 proofImage1: ie || void 0,
                 proofImage2: pe || void 0,
@@ -32026,7 +32027,8 @@ const g8 = ({
                                     className: "text-[10.5px] font-bold text-[#6C655B] uppercase block",
                                     children: "Current Status"
                                 }), u.jsxs("select", {
-                                    value: ge,
+                                    value: __isLimited ? "Open" : ge,
+                                    disabled: __isLimited,
                                     onChange: Ee => we(Ee.target.value),
                                     className: "w-full px-2.5 py-2 border border-[#EAE3D5] rounded-xl bg-white text-gray-900 font-bold focus:outline-none focus:ring-1 focus:ring-[#C5A059]",
                                     children: [u.jsx("option", {
