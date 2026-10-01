@@ -48,6 +48,11 @@ const USER_SLOTS = [
 const REPLIES_KEY = "eod_matrix_action_replies_v1";
 const MAX_REPLY_LENGTH = 2000;
 
+// Action items (Action Tracker). The read-only "limited" account may CREATE a new action item
+// (always stored as "Open", stamped with who created it, never overwriting an existing one),
+// but it can never edit or delete existing items.
+const ACTIONS_KEY = "eod_matrix_actions_v3";
+
 const sha = (s) => createHash("sha256").update(String(s)).digest();
 
 // Returns the index of the matching passcode, or -1. Compares fixed-length digests in constant time.
@@ -151,10 +156,12 @@ export default async function handler(req, res) {
 
       const isReply = key.startsWith(REPLIES_KEY + "::");
 
+      const isActionRow = key.startsWith(ACTIONS_KEY + "::");
+
       // Read-only account: its changes are accepted by the API (so the app does not show a
-      // false "not saved" warning) but are NOT written. Only its presence heartbeat and
-      // replies are stored.
-      if (isLimited && !isReply && !key.startsWith("presence:")) {
+      // false "not saved" warning) but are NOT written. Only its presence heartbeat, replies
+      // and brand-new action items are stored.
+      if (isLimited && !isReply && !isActionRow && !key.startsWith("presence:")) {
         return res.status(200).json({ ok: true, readOnly: true });
       }
 
@@ -178,6 +185,23 @@ export default async function handler(req, res) {
         if (!isFinite(t) || Math.abs(t - Date.now()) > 24 * 60 * 60 * 1000) rec.ts = new Date().toISOString();
         body = JSON.stringify(rec);
         prefer = "resolution=ignore-duplicates"; // append-only: an existing reply is never overwritten
+      }
+
+      if (isLimited && isActionRow) {
+        let rec = null;
+        try { rec = typeof value === "string" ? JSON.parse(value) : value; } catch (e) { rec = null; }
+        const okShape = rec && typeof rec === "object" && !Array.isArray(rec)
+          && typeof rec.id === "string" && key === ACTIONS_KEY + "::" + rec.id
+          && typeof rec.actionRequired === "string" && rec.actionRequired.trim().length > 0 && rec.actionRequired.length <= MAX_REPLY_LENGTH * 2;
+        if (!okShape) {
+          return res.status(400).json({ error: "invalid action item" });
+        }
+        rec.status = "Open";            // a limited account cannot create an already-resolved item
+        delete rec.completionDate;
+        rec.createdBy = me.slug;        // stamped here, not by the browser
+        rec.createdByName = me.name;
+        body = JSON.stringify(rec);
+        prefer = "resolution=ignore-duplicates"; // create-only: an existing item is never overwritten
       }
 
       const r = await fetch(kv, {
