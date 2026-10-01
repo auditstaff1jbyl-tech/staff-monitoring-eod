@@ -338,3 +338,66 @@ button[id^="btn-"]:not([disabled]):active {
 [data-theme="dark"] .tk-btn-delete { color: #F08A8F; border-color: #6A3A3D; }
 [data-theme="dark"] .tk-btn-delete:hover { background: #3A2326; border-color: #F08A8F; color: #FFB3B7; }
 [data-theme="dark"] .tk-badge { box-shadow: 0 0 0 2px #1E1A14; }
+
+
+/* ============================================================
+   Limited Viewer — "View Logs" button
+   Calm outlined button when there is nothing to read; strong gold
+   button + message count + pulsing dot when someone replied.
+   ============================================================ */
+.tk-view {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 9px;
+  border: 1px solid #D8CDB4;
+  background: #FFFFFF;
+  color: #3A342B;
+  font: 700 11.5px/1 'Plus Jakarta Sans', sans-serif;
+  letter-spacing: .01em;
+  cursor: pointer;
+  transition: background .15s, border-color .15s, box-shadow .15s, transform .15s;
+}
+.tk-view:hover { background: #FAF3E3; border-color: #B8924A; transform: translateY(-1px); }
+.tk-view:focus-visible { outline: 2px solid #C5A059; outline-offset: 2px; }
+.tk-view-has {
+  background: linear-gradient(145deg, #E2C58A, #C9A25A);
+  border-color: #A9853F;
+  color: #2C2110;
+  box-shadow: 0 6px 14px -6px rgba(169,133,63,.75);
+}
+.tk-view-has:hover { background: linear-gradient(145deg, #E8CD96, #CFA85F); border-color: #8F6E2C; }
+.tk-view-count {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #2C2110;
+  color: #F5EFE2;
+  font: 700 10px/1 'JetBrains Mono', monospace;
+  letter-spacing: .02em;
+  white-space: nowrap;
+}
+.tk-view-dot {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #D64550;
+  box-shadow: 0 0 0 2px #fff;
+  animation: tkPulse 1.8s ease-out infinite;
+}
+@keyframes tkPulse {
+  0%   { box-shadow: 0 0 0 2px #fff, 0 0 0 0 rgba(214,69,80,.55); }
+  70%  { box-shadow: 0 0 0 2px #fff, 0 0 0 9px rgba(214,69,80,0); }
+  100% { box-shadow: 0 0 0 2px #fff, 0 0 0 0 rgba(214,69,80,0); }
+}
+@media (prefers-reduced-motion: reduce) { .tk-view-dot { animation: none; } }
+
+[data-theme="dark"] .tk-view { background: #27221A; border-color: #4A4131; color: #E8E0D0; }
+[data-theme="dark"] .tk-view:hover { background: #322C21; border-color: #D9B66B; }
+[data-theme="dark"] .tk-view-has { background: linear-gradient(145deg, #D9B66B, #B8924A); border-color: #E8CD96; color: #1E1608; }
+[data-theme="dark"] .tk-view-dot { box-shadow: 0 0 0 2px #1E1A14; }
