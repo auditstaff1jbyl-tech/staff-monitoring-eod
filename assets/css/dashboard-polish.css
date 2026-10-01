@@ -289,3 +289,52 @@ button[id^="btn-"]:not([disabled]):active {
   #gateForm.gm-card { padding: 32px 22px 24px; }
   #gateForm .gm-title { font-size: 17px; }
 }
+
+
+/* ============================================================
+   Action Tracker card — icon buttons (Audit Staff 1 & 2 view)
+   Clear, bordered, high-contrast controls instead of faint
+   gray icons / emoji.
+   ============================================================ */
+.tk-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  border: 1px solid #D8CDB4;
+  background: #FFFFFF;
+  color: #3A342B;
+  cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s, box-shadow .15s, transform .15s;
+}
+.tk-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 10px -4px rgba(44,33,16,.35); }
+.tk-btn:focus-visible { outline: 2px solid #C5A059; outline-offset: 2px; }
+.tk-btn-comment:hover,
+.tk-btn-edit:hover { background: #FAF3E3; border-color: #B8924A; color: #7A5A1E; }
+.tk-btn-delete { color: #B53D43; border-color: #EBC4C6; }
+.tk-btn-delete:hover { background: #FCEDEE; border-color: #B53D43; color: #8F2A30; }
+.tk-badge {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: #B8924A;
+  color: #fff;
+  font: 700 10.5px/18px 'JetBrains Mono', monospace;
+  text-align: center;
+  box-shadow: 0 0 0 2px #fff;
+}
+
+/* Dark mode variants for the tracker icon buttons */
+[data-theme="dark"] .tk-btn { background: #27221A; border-color: #4A4131; color: #E8E0D0; }
+[data-theme="dark"] .tk-btn-comment:hover,
+[data-theme="dark"] .tk-btn-edit:hover { background: #322C21; border-color: #D9B66B; color: #F0D79A; }
+[data-theme="dark"] .tk-btn-delete { color: #F08A8F; border-color: #6A3A3D; }
+[data-theme="dark"] .tk-btn-delete:hover { background: #3A2326; border-color: #F08A8F; color: #FFB3B7; }
+[data-theme="dark"] .tk-badge { box-shadow: 0 0 0 2px #1E1A14; }
