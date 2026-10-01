@@ -31735,11 +31735,31 @@ const g8 = ({
                                 })]
                             }), u.jsxs("div", {
                                 className: "flex items-center gap-1.5",
-                                children: __isLimited ? [u.jsx("button", {
+                                children: __isLimited ? [u.jsxs("button", {
                                     onClick: () => __setLogItem(Ee),
-                                    className: "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-green-300 bg-green-100 text-green-800 hover:bg-green-200 font-mono text-[10.5px] font-bold cursor-pointer transition-colors",
-                                    title: "View logs (read-only)",
-                                    children: "View Logs" + (__rc(Ee.id) ? " (" + __rc(Ee.id) + ")" : "")
+                                    className: "tk-view" + (__rc(Ee.id) ? " tk-view-has" : ""),
+                                    title: __rc(Ee.id) ? ("You have " + __rc(Ee.id) + (__rc(Ee.id) === 1 ? " message" : " messages") + " on this task - click to read") : "View logs (read-only)",
+                                    "aria-label": __rc(Ee.id) ? ("View logs, " + __rc(Ee.id) + " new messages") : "View logs",
+                                    children: [u.jsxs("svg", {
+                                        viewBox: "0 0 24 24",
+                                        width: 16,
+                                        height: 16,
+                                        fill: "none",
+                                        stroke: "currentColor",
+                                        strokeWidth: 1.9,
+                                        strokeLinecap: "round",
+                                        strokeLinejoin: "round",
+                                        "aria-hidden": "true",
+                                        children: [u.jsx("path", { d: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" }), u.jsx("path", { d: "M8 9h8" }), u.jsx("path", { d: "M8 13h5" })]
+                                    }), u.jsx("span", {
+                                        children: "View Logs"
+                                    }), __rc(Ee.id) ? u.jsx("span", {
+                                        className: "tk-view-count",
+                                        children: __rc(Ee.id) + (__rc(Ee.id) === 1 ? " message" : " messages")
+                                    }) : null, __rc(Ee.id) ? u.jsx("span", {
+                                        className: "tk-view-dot",
+                                        "aria-hidden": "true"
+                                    }) : null]
                                 })] : [u.jsxs("button", {
                                     onClick: () => __setLogItem(Ee),
                                     className: "tk-btn tk-btn-comment",
