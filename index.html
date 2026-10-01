@@ -15,6 +15,44 @@
          Only takes effect when <html data-theme="dark"> (set by display-settings.js). -->
     <link rel="stylesheet" href="/assets/css/dark-theme.css?v=2">
 
+    <!-- Loading skeleton: a static preview of the app layout shown the instant the page opens
+         (including on Reload) and replaced automatically when the app mounts into #root.
+         Plain CSS on purpose (no Tailwind classes) so it paints before anything else is ready.
+         Follows dark mode through the same [data-theme=dark] attribute as the rest of the app. -->
+    <style>
+      #app-skeleton{--sk-bg:#FAF7F2;--sk-card:#fff;--sk-line:#EAE3D5;--sk-bar:#EFE9DC;--sk-hi:#F8F4EA;--sk-dbar:#26221D;--sk-dhi:#34302A;--sk-gold:#A67C30;
+        display:flex;min-height:100vh;background:var(--sk-bg);color:var(--sk-gold);font-family:'Plus Jakarta Sans',-apple-system,Segoe UI,Roboto,sans-serif}
+      [data-theme=dark] #app-skeleton{--sk-bg:#15120E;--sk-card:#1E1A14;--sk-line:#3A3327;--sk-bar:#2C261C;--sk-hi:#3A3226;--sk-gold:#D9B66B}
+      #app-skeleton *{box-sizing:border-box}
+      #app-skeleton .sk-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+      #app-skeleton .sk-b{display:block;border-radius:6px;background:linear-gradient(90deg,var(--sk-bar) 25%,var(--sk-hi) 50%,var(--sk-bar) 75%);background-size:200% 100%;animation:skShimmer 1.5s ease-in-out infinite}
+      #app-skeleton .sk-d{background:linear-gradient(90deg,var(--sk-dbar) 25%,var(--sk-dhi) 50%,var(--sk-dbar) 75%);background-size:200% 100%}
+      #app-skeleton .sk-side{display:none;width:256px;flex:none;background:#121110;border-right:1px solid #22201D;padding:20px}
+      #app-skeleton .sk-brand{display:flex;align-items:center;gap:12px;padding:0 8px;margin-bottom:28px}
+      #app-skeleton .sk-logo{width:40px;height:40px;border-radius:12px;flex:none}
+      #app-skeleton .sk-lines{display:flex;flex-direction:column;gap:8px}
+      #app-skeleton .sk-nav-item{display:flex;align-items:center;gap:12px;height:40px;padding:0 10px}
+      #app-skeleton .sk-ico{width:16px;height:16px;border-radius:4px;flex:none}
+      #app-skeleton .sk-main{flex:1;min-width:0;display:flex;flex-direction:column}
+      #app-skeleton .sk-head{display:flex;align-items:center;gap:14px;min-height:57px;padding:14px 24px;background:var(--sk-card);border-bottom:1px solid var(--sk-line)}
+      #app-skeleton .sk-status{margin-left:auto;display:inline-flex;align-items:center;gap:8px;white-space:nowrap;font:600 10.5px/1 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.06em;text-transform:uppercase}
+      #app-skeleton .sk-spin{width:12px;height:12px;border-radius:50%;border:2px solid currentColor;border-top-color:transparent;animation:skSpin .8s linear infinite}
+      #app-skeleton .sk-content{width:100%;max-width:80rem;margin:0 auto;padding:24px;display:flex;flex-direction:column;gap:20px}
+      #app-skeleton .sk-card{background:var(--sk-card);border:1px solid var(--sk-line);border-radius:16px;padding:20px}
+      #app-skeleton .sk-grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+      #app-skeleton .sk-grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+      #app-skeleton .sk-kpi{display:flex;align-items:center;gap:14px;height:96px}
+      #app-skeleton .sk-slow{opacity:0;text-align:center;font-size:11.5px;font-weight:600;animation:skFadeIn .4s 15s forwards}
+      @media(min-width:768px){#app-skeleton{height:100vh;overflow:hidden}#app-skeleton .sk-side{display:block}}
+      @media(min-width:1024px){#app-skeleton .sk-content{padding:32px}}
+      @media(max-width:1023px){#app-skeleton .sk-grid4{grid-template-columns:repeat(2,minmax(0,1fr))}}
+      @media(max-width:639px){#app-skeleton .sk-grid4,#app-skeleton .sk-grid2{grid-template-columns:1fr}#app-skeleton .sk-head{padding:12px 16px}#app-skeleton .sk-hide-sm{display:none}}
+      @media(prefers-reduced-motion:reduce){#app-skeleton .sk-b,#app-skeleton .sk-spin{animation:none}}
+      @keyframes skShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+      @keyframes skSpin{to{transform:rotate(360deg)}}
+      @keyframes skFadeIn{to{opacity:1}}
+    </style>
+
     <!--
       Load order matters:
         1. config.js         defines USER_DIRECTORY (no secrets — passcodes are verified server-side)
@@ -32,6 +70,60 @@
     <script src="/assets/js/display-settings.js?v=5"></script>
   </head>
   <body class="bg-[#FAF7F2] text-[#2C2A29] font-sans antialiased selection:bg-[#C5A059] selection:text-black">
-    <div id="root"></div>
+    <div id="root">
+      <!-- React replaces everything inside #root on its first render, so this disappears by itself. -->
+      <div id="app-skeleton" role="status" aria-live="polite" aria-busy="true">
+        <span class="sk-sr">Loading dashboard…</span>
+
+        <aside class="sk-side" aria-hidden="true">
+          <div class="sk-brand">
+            <i class="sk-b sk-d sk-logo"></i>
+            <div class="sk-lines"><i class="sk-b sk-d" style="width:96px;height:13px"></i><i class="sk-b sk-d" style="width:128px;height:8px"></i></div>
+          </div>
+          <i class="sk-b sk-d" style="width:112px;height:8px;margin:0 8px 14px"></i>
+          <div class="sk-nav-item"><i class="sk-b sk-d sk-ico"></i><i class="sk-b sk-d" style="width:70px;height:10px"></i></div>
+          <div class="sk-nav-item"><i class="sk-b sk-d sk-ico"></i><i class="sk-b sk-d" style="width:104px;height:10px"></i></div>
+          <div class="sk-nav-item"><i class="sk-b sk-d sk-ico"></i><i class="sk-b sk-d" style="width:92px;height:10px"></i></div>
+          <div class="sk-nav-item"><i class="sk-b sk-d sk-ico"></i><i class="sk-b sk-d" style="width:84px;height:10px"></i></div>
+          <div class="sk-nav-item"><i class="sk-b sk-d sk-ico"></i><i class="sk-b sk-d" style="width:98px;height:10px"></i></div>
+          <div class="sk-nav-item"><i class="sk-b sk-d sk-ico"></i><i class="sk-b sk-d" style="width:78px;height:10px"></i></div>
+          <div class="sk-nav-item"><i class="sk-b sk-d sk-ico"></i><i class="sk-b sk-d" style="width:62px;height:10px"></i></div>
+        </aside>
+
+        <div class="sk-main" aria-hidden="true">
+          <div class="sk-head">
+            <i class="sk-b" style="width:min(300px,40%);height:20px"></i>
+            <i class="sk-b sk-hide-sm" style="width:130px;height:20px;border-radius:999px"></i>
+            <span class="sk-status"><b class="sk-spin"></b><span>Loading dashboard…</span></span>
+          </div>
+
+          <div class="sk-content">
+            <div class="sk-card">
+              <i class="sk-b" style="width:190px;height:14px;margin-bottom:16px"></i>
+              <div class="sk-grid4">
+                <i class="sk-b" style="height:38px;border-radius:10px"></i>
+                <i class="sk-b" style="height:38px;border-radius:10px"></i>
+                <i class="sk-b" style="height:38px;border-radius:10px"></i>
+                <i class="sk-b" style="height:38px;border-radius:10px"></i>
+              </div>
+            </div>
+
+            <div class="sk-grid4">
+              <div class="sk-card sk-kpi"><i class="sk-b" style="width:40px;height:40px;border-radius:12px;flex:none"></i><div class="sk-lines" style="flex:1"><i class="sk-b" style="width:60%;height:10px"></i><i class="sk-b" style="width:42%;height:22px"></i></div></div>
+              <div class="sk-card sk-kpi"><i class="sk-b" style="width:40px;height:40px;border-radius:12px;flex:none"></i><div class="sk-lines" style="flex:1"><i class="sk-b" style="width:60%;height:10px"></i><i class="sk-b" style="width:42%;height:22px"></i></div></div>
+              <div class="sk-card sk-kpi"><i class="sk-b" style="width:40px;height:40px;border-radius:12px;flex:none"></i><div class="sk-lines" style="flex:1"><i class="sk-b" style="width:60%;height:10px"></i><i class="sk-b" style="width:42%;height:22px"></i></div></div>
+              <div class="sk-card sk-kpi"><i class="sk-b" style="width:40px;height:40px;border-radius:12px;flex:none"></i><div class="sk-lines" style="flex:1"><i class="sk-b" style="width:60%;height:10px"></i><i class="sk-b" style="width:42%;height:22px"></i></div></div>
+            </div>
+
+            <div class="sk-grid2">
+              <div class="sk-card" style="height:230px"><i class="sk-b" style="width:220px;height:14px;margin-bottom:20px"></i><div class="sk-lines" style="gap:14px"><i class="sk-b" style="width:96%;height:10px"></i><i class="sk-b" style="width:88%;height:10px"></i><i class="sk-b" style="width:92%;height:10px"></i><i class="sk-b" style="width:70%;height:10px"></i></div></div>
+              <div class="sk-card" style="height:230px"><i class="sk-b" style="width:240px;height:14px;margin-bottom:20px"></i><div class="sk-lines" style="gap:14px"><i class="sk-b" style="width:100%;height:46px;border-radius:12px"></i><i class="sk-b" style="width:100%;height:46px;border-radius:12px"></i><i class="sk-b" style="width:100%;height:46px;border-radius:12px"></i></div></div>
+            </div>
+
+            <p class="sk-slow">Still loading — this can take a little longer on a slow connection. Please keep this tab open.</p>
+          </div>
+        </div>
+      </div>
+    </div>
   </body>
 </html>
