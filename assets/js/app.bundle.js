@@ -31268,6 +31268,69 @@ const g8 = ({
         var ot;
         const __isLimited = (() => { try { const __i = parseInt(sessionStorage.getItem("__user_idx"), 10); const __u = (!isNaN(__i) && typeof USER_DIRECTORY !== "undefined") ? USER_DIRECTORY[__i] : null; return !!__u && __u.role === "limited" } catch (__e) { return !1 } })();
         const [__logItem, __setLogItem] = ve.useState(null);
+        const __REPLY_KEY = "eod_matrix_action_replies_v1";
+        const __me = (() => { try { const __i = parseInt(sessionStorage.getItem("__user_idx"), 10); const __d = (!isNaN(__i) && typeof USER_DIRECTORY !== "undefined") ? USER_DIRECTORY[__i] : null; return __d ? { slug: __d.slug, name: __d.name } : null } catch (__e) { return null } })();
+        const [__replies, __setReplies] = ve.useState(() => { try { const __a = JSON.parse(localStorage.getItem("eod_matrix_action_replies_v1") || "[]"); return Array.isArray(__a) ? __a : [] } catch (__e) { return [] } });
+        const [__replyText, __setReplyText] = ve.useState("");
+        const __rc = __id => __replies.filter(__r => __r.actionId === __id).length;
+        const __addReply = __actionId => {
+            const __t = __replyText.trim();
+            if (!__t || !__me) return;
+            const __rec = { id: "rp_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7), actionId: __actionId, by: __me.slug, byName: __me.name, text: __t.slice(0, 1000), ts: new Date().toISOString() };
+            const __next = [...__replies, __rec];
+            try { localStorage.setItem(__REPLY_KEY, JSON.stringify(__next)) } catch (__e) {}
+            __setReplies(__next);
+            __setReplyText("")
+        };
+        const __fmtTs = __ts => { try { return new Date(__ts).toLocaleString("en-PH", { year: "numeric", month: "short", day: "2-digit", hour: "numeric", minute: "2-digit" }) } catch (__e) { return String(__ts || "") } };
+        const __thread = __actionId => {
+            const __list = __replies.filter(__r => __r.actionId === __actionId).sort((__a, __b) => String(__a.ts).localeCompare(String(__b.ts)));
+            return u.jsxs("div", {
+                className: "space-y-2 border-t border-[#FAF7F2] pt-3",
+                children: [u.jsxs("span", {
+                    className: "text-[10px] font-bold text-[#6C655B] uppercase tracking-wider block",
+                    children: ["Replies (", __list.length, ")"]
+                }), __list.length === 0 ? u.jsx("p", {
+                    className: "text-gray-500 italic",
+                    children: "No replies yet."
+                }) : u.jsx("div", {
+                    className: "space-y-2 max-h-48 overflow-y-auto pr-1",
+                    children: __list.map(__r => u.jsxs("div", {
+                        className: "bg-[#FAF7F2] border border-[#EAE3D5] rounded-xl p-2.5",
+                        children: [u.jsxs("div", {
+                            className: "flex items-center justify-between gap-2",
+                            children: [u.jsxs("span", {
+                                className: "font-bold text-gray-900",
+                                children: [__r.byName || __r.by || "Unknown", __me && __r.by === __me.slug ? " (you)" : ""]
+                            }), u.jsx("span", {
+                                className: "text-[10px] font-mono text-gray-400",
+                                children: __fmtTs(__r.ts)
+                            })]
+                        }), u.jsx("p", {
+                            className: "text-gray-700 mt-1 leading-relaxed",
+                            style: { whiteSpace: "pre-wrap", wordBreak: "break-word" },
+                            children: __r.text
+                        })]
+                    }, __r.id))
+                }), u.jsx("textarea", {
+                    value: __replyText,
+                    rows: 2,
+                    maxLength: 1000,
+                    placeholder: __me ? "Write a reply as " + __me.name + "..." : "Write a reply...",
+                    onChange: __ev => __setReplyText(__ev.target.value),
+                    onKeyDown: __ev => { if (__ev.ctrlKey && __ev.key === "Enter") { __ev.preventDefault(); __addReply(__actionId) } },
+                    className: "w-full px-3 py-2 border border-[#EAE3D5] rounded-xl text-xs text-gray-900 bg-white focus:outline-none focus:border-[#C5A059] resize-none"
+                }), u.jsx("div", {
+                    className: "flex justify-end",
+                    children: u.jsx("button", {
+                        onClick: () => __addReply(__actionId),
+                        disabled: !__replyText.trim() || !__me,
+                        className: "px-4 py-2 bg-[#C5A059] hover:bg-[#b08d4b] text-black font-bold rounded-xl text-xs cursor-pointer transition-colors" + (!__replyText.trim() || !__me ? " opacity-70" : ""),
+                        children: "Send Reply"
+                    })
+                })]
+            })
+        };
         const __focusedRecord = ve.useMemo(() => __recId ? (r || []).find(rc => rc.id === __recId) : null, [__recId, r]);
         const __staffHistory = ve.useMemo(() => {
             if (!__focusedRecord || !__focusedRecord.staffName) return [];
@@ -31675,8 +31738,13 @@ const g8 = ({
                                     onClick: () => __setLogItem(Ee),
                                     className: "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-green-300 bg-green-100 text-green-800 hover:bg-green-200 font-mono text-[10.5px] font-bold cursor-pointer transition-colors",
                                     title: "View logs (read-only)",
-                                    children: "View Logs"
+                                    children: "View Logs" + (__rc(Ee.id) ? " (" + __rc(Ee.id) + ")" : "")
                                 })] : [u.jsx("button", {
+                                    onClick: () => __setLogItem(Ee),
+                                    className: "p-1.5 text-gray-400 hover:text-black hover:bg-gray-100 rounded-lg transition-colors cursor-pointer font-mono text-[11px] font-bold",
+                                    title: "View logs & replies",
+                                    children: "\uD83D\uDCAC" + (__rc(Ee.id) ? " " + __rc(Ee.id) : "")
+                                }), u.jsx("button", {
                                     onClick: () => Se(Ee),
                                     className: "p-1.5 text-gray-400 hover:text-black hover:bg-gray-100 rounded-lg transition-colors cursor-pointer",
                                     title: "Edit task",
@@ -31764,13 +31832,13 @@ const g8 = ({
                 className: "fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto",
                 onClick: () => __setLogItem(null),
                 children: u.jsxs("div", {
-                    className: "bg-white border border-[#EAE3D5] rounded-2xl shadow-2xl w-full max-w-lg p-6 space-y-4 text-xs animate-fade-in",
+                    className: "bg-white border border-[#EAE3D5] rounded-2xl shadow-2xl w-full max-w-lg p-6 space-y-4 text-xs animate-fade-in max-h-[90vh] overflow-y-auto",
                     onClick: __ev => __ev.stopPropagation(),
                     children: [u.jsxs("div", {
                         className: "flex items-center justify-between border-b border-[#FAF7F2] pb-3",
                         children: [u.jsx("h3", {
                             className: "font-serif font-bold text-base text-gray-900 italic",
-                            children: "Action Item Logs"
+                            children: "Action Item Logs & Replies"
                         }), u.jsx("button", {
                             onClick: () => __setLogItem(null),
                             className: "text-gray-400 hover:text-black font-bold cursor-pointer",
@@ -31847,7 +31915,7 @@ const g8 = ({
                             onClick: () => window.open(__logItem.proofImage2, "_blank"),
                             className: "w-12 h-12 object-cover rounded-lg border border-[#EAE3D5] cursor-zoom-in hover:scale-105 transition-transform"
                         })]
-                    }), u.jsx("button", {
+                    }), __thread(__logItem.id), u.jsx("button", {
                         onClick: () => __setLogItem(null),
                         className: "w-full px-5 py-2.5 bg-[#121110] hover:bg-black text-[#C5A059] font-bold rounded-xl text-sm shadow-sm transition-all cursor-pointer",
                         children: "Close"
