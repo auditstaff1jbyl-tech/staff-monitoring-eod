@@ -32,6 +32,22 @@ const KEY_PATTERNS = [
 ];
 const isValidKey = (k) => typeof k === "string" && k.length <= 320 && KEY_PATTERNS.some((re) => re.test(k));
 
+// Passcode slot -> who is calling. KEEP IN SYNC with USER_DIRECTORY in assets/js/config.js
+// (same order as the APP_PASSCODES environment variable). A slot that is not listed here
+// is treated as a normal "full" account, exactly like before.
+const USER_SLOTS = [
+  { slug: "auditstaff1", name: "Audit Staff 1", role: "full" },
+  { slug: "auditstaff2", name: "Audit Staff 2", role: "full" },
+  { slug: "limitedviewer", name: "Limited Viewer", role: "limited" },
+];
+
+// Action-item replies: one row per reply (eod_matrix_action_replies_v1::<replyId>).
+//  - The author (by / byName) is stamped HERE from the passcode that made the request,
+//    so it cannot be forged from the browser.
+//  - Append-only: a reply that already exists is never overwritten (ignore-duplicates).
+const REPLIES_KEY = "eod_matrix_action_replies_v1";
+const MAX_REPLY_LENGTH = 2000;
+
 const sha = (s) => createHash("sha256").update(String(s)).digest();
 
 // Returns the index of the matching passcode, or -1. Compares fixed-length digests in constant time.
@@ -69,6 +85,9 @@ export default async function handler(req, res) {
     await sleep(300); // blunt online guessing a little
     return res.status(401).json({ error: "Invalid or missing passcode." });
   }
+
+  const me = USER_SLOTS[passcodeIndex] || null;
+  const isLimited = !!me && me.role === "limited";
 
   const sbHeaders = {
     apikey: SUPABASE_SERVICE_KEY,
@@ -129,10 +148,42 @@ export default async function handler(req, res) {
       if (!isValidKey(key)) {
         return res.status(400).json({ error: "key not allowed" });
       }
+
+      const isReply = key.startsWith(REPLIES_KEY + "::");
+
+      // Read-only account: its changes are accepted by the API (so the app does not show a
+      // false "not saved" warning) but are NOT written. Only its presence heartbeat and
+      // replies are stored.
+      if (isLimited && !isReply && !key.startsWith("presence:")) {
+        return res.status(200).json({ ok: true, readOnly: true });
+      }
+
+      let body = value;
+      let prefer = "resolution=merge-duplicates";
+
+      if (isReply) {
+        let rec = null;
+        try { rec = typeof value === "string" ? JSON.parse(value) : value; } catch (e) { rec = null; }
+        const okShape = rec && typeof rec === "object" && !Array.isArray(rec)
+          && typeof rec.text === "string" && rec.text.trim().length > 0 && rec.text.length <= MAX_REPLY_LENGTH
+          && (typeof rec.actionId === "string" || typeof rec.actionId === "number")
+          && typeof rec.id === "string" && key === REPLIES_KEY + "::" + rec.id;
+        if (!okShape) {
+          return res.status(400).json({ error: "invalid reply" });
+        }
+        // Author is decided by the server, never by the browser.
+        rec.by = me ? me.slug : "unknown";
+        rec.byName = me ? me.name : "Unknown user";
+        const t = Date.parse(rec.ts);
+        if (!isFinite(t) || Math.abs(t - Date.now()) > 24 * 60 * 60 * 1000) rec.ts = new Date().toISOString();
+        body = JSON.stringify(rec);
+        prefer = "resolution=ignore-duplicates"; // append-only: an existing reply is never overwritten
+      }
+
       const r = await fetch(kv, {
         method: "POST",
-        headers: { ...sbHeaders, Prefer: "resolution=merge-duplicates" },
-        body: JSON.stringify({ key, value, updated_at: new Date().toISOString() }),
+        headers: { ...sbHeaders, Prefer: prefer },
+        body: JSON.stringify({ key, value: body, updated_at: new Date().toISOString() }),
       });
       const text = await r.text();
       return res.status(r.status).send(text || "{}");
@@ -142,6 +193,10 @@ export default async function handler(req, res) {
       const key = req.query && req.query.key;
       if (!key) return res.status(400).json({ error: "key is required" });
       if (!isValidKey(key)) return res.status(400).json({ error: "key not allowed" });
+      if (isLimited) {
+        // Read-only account can never delete anything (see POST above).
+        return res.status(200).json({ ok: true, readOnly: true });
+      }
       const r = await fetch(`${kv}?key=eq.${encodeURIComponent(key)}`, {
         method: "DELETE",
         headers: sbHeaders,
