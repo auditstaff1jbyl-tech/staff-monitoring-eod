@@ -107,6 +107,14 @@
     document.head.appendChild(style);
   }
 
+  var LOGO_ICON = '<svg class="gm-logo-svg" viewBox="0 0 32 32" width="30" height="30" fill="none" stroke="#2C2110" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<rect x="7" y="4" width="18" height="24" rx="2.5"/>' +
+    '<path d="M11 4v24" />' +
+    '<path d="M3.5 9h3M3.5 14h3M3.5 19h3M3.5 24h3"/>' +
+    '<path d="M15 10h7M15 15h7"/>' +
+    '<path d="M15 21l2 2 4-4.5"/>' +
+    '</svg>';
+
   var LOCK_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2C2A29" stroke-width="2"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
 
   // Shown when the cloud could not be reached on a device that has never stored any data.
@@ -120,7 +128,7 @@
     overlay.innerHTML =
       '<div class="gm-orb"></div>' +
       '<div class="gm-card">' +
-      '<div class="gm-logo">EOD</div>' +
+      '<div class="gm-logo">' + LOGO_ICON + '</div>' +
       '<div class="gm-title" style="font-size:15px;">Could not load your data</div>' +
       '<div style="font-size:12.5px;color:#6C655B;margin:10px 0 20px;line-height:1.55;">The cloud database did not respond. To protect your records the app will not start with an empty local copy. Check your internet connection and try again.</div>' +
       '<button id="retryLoadBtn" class="gm-btn"><span>Retry connection</span></button>' +
@@ -786,7 +794,7 @@
     overlay.innerHTML =
       '<div class="gm-orb"></div>' +
       '<form id="gateForm" class="gm-card">' +
-      '<div class="gm-logo">EOD</div>' +
+      '<div class="gm-logo">' + LOGO_ICON + '</div>' +
       '<div class="gm-eyebrow">Executive Decision Dashboard</div>' +
       '<div class="gm-title">EOD MONITORING MATRIX</div>' +
       '<div class="gm-subtitle">Enter passcode to continue</div>' +
