@@ -31740,26 +31740,43 @@ const g8 = ({
                                     className: "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-green-300 bg-green-100 text-green-800 hover:bg-green-200 font-mono text-[10.5px] font-bold cursor-pointer transition-colors",
                                     title: "View logs (read-only)",
                                     children: "View Logs" + (__rc(Ee.id) ? " (" + __rc(Ee.id) + ")" : "")
-                                })] : [u.jsx("button", {
+                                })] : [u.jsxs("button", {
                                     onClick: () => __setLogItem(Ee),
-                                    className: "p-1.5 text-gray-400 hover:text-black hover:bg-gray-100 rounded-lg transition-colors cursor-pointer font-mono text-[11px] font-bold",
+                                    className: "tk-btn tk-btn-comment",
                                     title: "View logs & replies",
-                                    children: "\uD83D\uDCAC" + (__rc(Ee.id) ? " " + __rc(Ee.id) : "")
+                                    "aria-label": "View logs and replies",
+                                    children: [u.jsxs("svg", {
+                                        viewBox: "0 0 24 24",
+                                        width: 17,
+                                        height: 17,
+                                        fill: "none",
+                                        stroke: "currentColor",
+                                        strokeWidth: 1.9,
+                                        strokeLinecap: "round",
+                                        strokeLinejoin: "round",
+                                        "aria-hidden": "true",
+                                        children: [u.jsx("path", { d: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" }), u.jsx("path", { d: "M8 9h8" }), u.jsx("path", { d: "M8 13h5" })]
+                                    }), __rc(Ee.id) ? u.jsx("span", {
+                                        className: "tk-badge",
+                                        children: __rc(Ee.id)
+                                    }) : null]
                                 }), u.jsx("button", {
                                     onClick: () => Se(Ee),
-                                    className: "p-1.5 text-gray-400 hover:text-black hover:bg-gray-100 rounded-lg transition-colors cursor-pointer",
+                                    className: "tk-btn tk-btn-edit",
                                     title: "Edit task",
+                                    "aria-label": "Edit task",
                                     children: u.jsx(Il, {
-                                        className: "w-3.5 h-3.5"
+                                        className: "w-4 h-4"
                                     })
                                 }), u.jsx("button", {
                                     onClick: () => {
                                         confirm("Delete this action tracker entry?") && s(Ee.id)
                                     },
-                                    className: "p-1.5 text-red-400 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors cursor-pointer",
+                                    className: "tk-btn tk-btn-delete",
                                     title: "Delete task",
+                                    "aria-label": "Delete task",
                                     children: u.jsx(zs, {
-                                        className: "w-3.5 h-3.5"
+                                        className: "w-4 h-4"
                                     })
                                 })]
                             })]
